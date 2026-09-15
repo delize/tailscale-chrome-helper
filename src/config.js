@@ -18,10 +18,14 @@ export const DEFAULTS = {
   // client for them. Fleets that deploy Tailscale by MDM turn it off.
   showInstallLink: true,
   tailscaleDownloadUrl: 'https://tailscale.com/download',
-  // Tailscale registers this scheme, so the page can launch the app instead of describing
-  // where to find it. It only opens the client, it does not connect, and Chrome shows a
-  // permission prompt first. Both facts are reflected in the copy.
-  openAppUrl: 'tailscale://connect',
+  // Empty by default, deliberately. Tailscale registers the tailscale:// scheme, but it
+  // serves signed deeplinks only. Both tailscale:// and tailscale://connect launch the
+  // client, which then rejects them with "The signing request could not be authenticated:
+  // Unable to verify deeplink". Verified on macOS, both forms. There is no unsigned URL
+  // that simply opens the app, so this ships off rather than handing users an error
+  // dialog. An administrator can point it at something that does work in their
+  // environment, such as an MDM self-service page.
+  openAppUrl: '',
   openAppLabel: 'Open Tailscale',
   connectHelpUrl: '',
   controlUrl: 'http://connectivitycheck.gstatic.com/generate_204',
@@ -46,7 +50,7 @@ const BRANDED = {
     headline: "This app is on {company}'s private network",
     lede: '{host} could not be reached. That usually means Tailscale is not connected on this device.',
     steps: [
-      'Tailscale is almost certainly already running on this device. Look for its icon at the top right of your screen (macOS menu bar) or bottom right (Windows system tray). It is faint while disconnected, which makes it easy to miss. Cannot see it? {openApp}',
+      'Tailscale is almost certainly already running on this device. Look for its icon at the top right of your screen (macOS menu bar) or bottom right (Windows system tray). It is faint while disconnected, which makes it easy to miss. {openApp}',
       'Click the icon and flip the toggle at the top of the menu, so "Not Connected" becomes "Connected". Opening the app does not connect it for you, that switch still has to be flipped.',
       'Still nothing? Then Tailscale may not be installed. Look in Applications on macOS, or search the Start menu on Windows, and sign in with your {company} account when it asks.',
       'Stay on this page. It checks every few seconds and takes you to the app automatically once you are connected.',

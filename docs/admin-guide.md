@@ -122,7 +122,7 @@ Policy changes apply without a browser restart.
 | `supportLabel` | string | `Ask IT` | Text on the escalation button. |
 | `showInstallLink` | boolean | `true` | Set false where Tailscale is deployed by MDM, so users are not told to install it themselves. |
 | `tailscaleDownloadUrl` | string | Tailscale's download page | Offered only when Tailscale is not running, and only if `showInstallLink` is true. |
-| `openAppUrl` | string | `tailscale://connect` | Link that launches the installed client. Accepts `tailscale:` or `https:`. Empty hides it. |
+| `openAppUrl` | string | unset | Link offered when the icon cannot be found. Accepts `tailscale:` or `https:`. Off by default, see below. |
 | `openAppLabel` | string | `Open Tailscale` | Text of that link. |
 | `connectHelpUrl` | string | unset | Link to your own runbook. |
 | `controlUrl` | string | `http://connectivitycheck.gstatic.com/generate_204` | Captive portal probe. Must be **http**, see below. |
@@ -196,17 +196,27 @@ gets Chrome's plain error page. Do not add a public IdP such as `okta.com` this 
 reachable without Tailscale, so a failure there is a real outage and the guidance would be
 wrong.
 
-### Launching the client
+### Launching the client, and why it is off by default
 
-The first step offers a link that opens Tailscale directly, for users who cannot find the
-icon in their menu bar or system tray. It uses the `tailscale://connect` scheme the client
-registers, so Chrome shows its usual "Open Tailscale.app?" permission prompt first.
+`openAppUrl` can put a link in the first step for users who cannot find the Tailscale icon.
+It is **unset by default**, and that is deliberate.
 
-It only opens the app. It does not connect, and the user still has to flip the toggle,
-which the copy says plainly so nobody clicks it and assumes they are done.
+Tailscale registers the `tailscale://` scheme, so it looks like an obvious way to open the
+client. It is not. The scheme serves signed deeplinks only. Both `tailscale://` and
+`tailscale://connect` launch the app, which then rejects them with:
 
-Point `openAppUrl` at an `https:` URL instead if you would rather route people through a
-self-service portal, or set it empty to remove the link.
+> The signing request could not be authenticated: Unable to verify deeplink
+
+Tested on macOS, both forms. There is no unsigned URL that simply opens the app, so the
+default is no link rather than a button that produces an error dialog.
+
+Set it only if you have something that works in your environment, such as an MDM
+self-service page that launches or repairs the client. An `https:` URL is usually the
+right shape. If you do set a `tailscale:` URL, test the whole path on a real device first.
+
+Worth knowing either way: Chrome's permission prompt names the requesting origin, and for
+an extension that is the raw extension ID rather than a friendly name. Users find that
+alarming without warning.
 
 ### Captive portals, and why the probe is plaintext
 

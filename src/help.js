@@ -122,12 +122,16 @@ async function main() {
           strong.textContent = part;
           li.appendChild(strong);
         } else if (part === '{openApp}') {
-          // Silently drops out when an administrator has cleared the URL.
+          // Drops out entirely when unset, which is the default, leaving the sentence
+          // before it to end the step cleanly.
           if (!config.openAppUrl) continue;
           const a = document.createElement('a');
           a.className = 'inline-action';
           a.href = config.openAppUrl;
           a.textContent = config.openAppLabel;
+          // Chrome names the requesting origin in its prompt, and for an extension that is
+          // the raw ID, which looks alarming without warning.
+          a.title = 'Chrome will ask permission first and will show this extension\u2019s ID';
           li.appendChild(a);
         } else if (part) {
           li.appendChild(document.createTextNode(part));

@@ -7,8 +7,9 @@
   "scripts": {
     "check": "node tools/check.mjs",
     "test": "node --test tests/config.test.mjs",
-    "verify": "npm run check && npm test",
+    "verify": "node tools/check.mjs && node --test tests/config.test.mjs && python3 tools/validate_manifest.py",
     "preview": "python3 -m http.server 8731 --bind 127.0.0.1",
-    "package": "node tools/package.mjs"
+    "package": "node tools/package.mjs",
+    "validate": "python3 tools/validate_manifest.py"
   }
 }

@@ -18,7 +18,9 @@
       "title": "Watched domain suffixes",
       "description": "Hostnames or suffixes this extension acts on, for example ['acme.ts.net']. A failed navigation to anything else is ignored and Chrome's own error page is left alone. Defaults to ['ts.net'], which matches every tailnet.",
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "tailnetName": {
       "title": "Tailnet display name",
@@ -90,34 +92,105 @@
       "description": "Replaces the wording for any of the four states. Supports the placeholders {company}, {host}, {error}, {tailnetName} and {exampleEmail}. Override only the states you care about, the rest keep their defaults.",
       "type": "object",
       "properties": {
-        "tailscaleOff": { "$ref": "stateCopy" },
-        "captivePortal": { "$ref": "stateCopy" },
-        "offline": { "$ref": "stateCopy" },
-        "appDown": { "$ref": "stateCopy" }
-      }
-    }
-  },
-  "definitions": {
-    "stateCopy": {
-      "id": "stateCopy",
-      "type": "object",
-      "properties": {
-        "pill": {
-          "description": "Short status label in the chip at the top of the page.",
-          "type": "string"
+        "tailscaleOff": {
+          "description": "Wording shown when Tailscale is not connected.",
+          "type": "object",
+          "properties": {
+            "pill": {
+              "description": "Short status label in the chip at the top of the page.",
+              "type": "string"
+            },
+            "headline": {
+              "description": "Main heading. Placeholders are substituted as plain text.",
+              "type": "string"
+            },
+            "lede": {
+              "description": "Sentence under the heading explaining what failed.",
+              "type": "string"
+            },
+            "steps": {
+              "description": "Numbered instructions shown to the user.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
         },
-        "headline": {
-          "description": "Main heading. Placeholders are substituted as plain text.",
-          "type": "string"
+        "captivePortal": {
+          "description": "Wording shown when a captive portal is intercepting traffic.",
+          "type": "object",
+          "properties": {
+            "pill": {
+              "description": "Short status label in the chip at the top of the page.",
+              "type": "string"
+            },
+            "headline": {
+              "description": "Main heading. Placeholders are substituted as plain text.",
+              "type": "string"
+            },
+            "lede": {
+              "description": "Sentence under the heading explaining what failed.",
+              "type": "string"
+            },
+            "steps": {
+              "description": "Numbered instructions shown to the user.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
         },
-        "lede": {
-          "description": "Sentence under the heading explaining what failed.",
-          "type": "string"
+        "offline": {
+          "description": "Wording shown when the device has no network at all.",
+          "type": "object",
+          "properties": {
+            "pill": {
+              "description": "Short status label in the chip at the top of the page.",
+              "type": "string"
+            },
+            "headline": {
+              "description": "Main heading. Placeholders are substituted as plain text.",
+              "type": "string"
+            },
+            "lede": {
+              "description": "Sentence under the heading explaining what failed.",
+              "type": "string"
+            },
+            "steps": {
+              "description": "Numbered instructions shown to the user.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
         },
-        "steps": {
-          "description": "Numbered instructions shown to the user.",
-          "type": "array",
-          "items": { "type": "string" }
+        "appDown": {
+          "description": "Wording shown when Tailscale is connected but the app did not answer.",
+          "type": "object",
+          "properties": {
+            "pill": {
+              "description": "Short status label in the chip at the top of the page.",
+              "type": "string"
+            },
+            "headline": {
+              "description": "Main heading. Placeholders are substituted as plain text.",
+              "type": "string"
+            },
+            "lede": {
+              "description": "Sentence under the heading explaining what failed.",
+              "type": "string"
+            },
+            "steps": {
+              "description": "Numbered instructions shown to the user.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     }

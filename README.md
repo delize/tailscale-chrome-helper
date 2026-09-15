@@ -59,10 +59,17 @@ configuration, and the single host entry allows the local Tailscale check.
 ## Development
 
 ```sh
-npm run verify    # schema/config drift check, then the test suite
+npm run verify    # drift check, tests, then Chrome-side manifest validation
 npm test          # logic tests only
+npm run validate  # ask Chrome to parse manifest.json and schema.json
 npm run package   # build the upload zip
 ```
+
+`npm run validate` matters more than it looks. Chrome silently discards any policy value
+that fails schema validation, with no error anywhere, so a malformed `schema.json` shows
+up only as "Not set" at `chrome://policy` after release. Packing the extension makes
+Chrome parse the schema and say what is wrong. This caught a `$ref` that Chrome does not
+resolve, which would have broken every copy override while appearing to work.
 
 To see the guidance page without loading the extension, serve the repo and open the
 preview harness, which stubs the extension APIs with a sample tenant:

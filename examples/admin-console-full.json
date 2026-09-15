@@ -11,6 +11,7 @@
   "checkingLabel": "Checking your connection",
   "showInstallLink": false,
   "suggestCorrectTailnet": false,
+  "showContinueAnyway": true,
   "tailscaleDownloadUrl": "https://tailscale.com/download",
   "openAppUrl": "",
   "openAppLabel": "Open Tailscale",

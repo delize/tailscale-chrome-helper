@@ -57,6 +57,11 @@
       "description": "When a user fails to reach a host on a DIFFERENT tailnet, offer the equivalent address on yours. Off by default, because it is the one feature that acts on hosts outside watchedSuffixes. It only ever shows a suggestion, never the connection guidance, and the user can always continue to the address they typed.",
       "type": "boolean"
     },
+    "showContinueAnyway": {
+      "title": "Offer a way past the suggestion",
+      "description": "Whether the wrongTailnet page offers a button to continue to the address the user typed. Default true. Setting false hides the button and removes the step that mentions it. IMPORTANT: this does not prevent access. The extension only sees failed navigations, and retyping the address bypasses it entirely. Enforce access to other tailnets with Tailscale ACLs and sharing policy, not with this setting.",
+      "type": "boolean"
+    },
     "tailscaleDownloadUrl": {
       "title": "Tailscale download link",
       "description": "Shown to users who have no Tailscale client at all. Defaults to the official download page.",

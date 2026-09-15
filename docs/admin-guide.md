@@ -125,6 +125,7 @@ Policy changes apply without a browser restart.
 | `checkingLabel` | string | `Checking your connection` | Status shown while the first connection check is still running. |
 | `showInstallLink` | boolean | `true` | Set false where Tailscale is deployed by MDM, so users are not told to install it themselves. |
 | `suggestCorrectTailnet` | boolean | `false` | Offer the corrected address when a user lands on a different tailnet. See below. |
+| `showContinueAnyway` | boolean | `true` | Whether that page offers a way past the suggestion. Hides a button, does not block access. See below. |
 | `tailscaleDownloadUrl` | string | Tailscale's download page | Offered only when Tailscale is not running, and only if `showInstallLink` is true. |
 | `openAppUrl` | string | unset | Link offered when the icon cannot be found. Accepts `tailscale:` or `https:`. Off by default, see below. |
 | `openAppLabel` | string | `Open Tailscale` | Text of that link. |
@@ -243,9 +244,23 @@ It refuses to guess rather than guessing badly. No suggestion is offered when th
 already on your tailnet, when the host is a bare tailnet name with no device label, when
 you have configured more than one tailnet, or when `watchedSuffixes` is the broad `ts.net`.
 
-The user can always continue to the address they typed. That choice is remembered for the
-rest of the browser session, so the extension stops interposing for that host. A
+By default the user can continue to the address they typed. That choice is remembered for
+the rest of the browser session, so the extension stops interposing for that host. A
 suggestion you cannot decline is an interception.
+
+### showContinueAnyway is not an access control
+
+Setting `showContinueAnyway` to false removes that button, and removes the step that
+refers to it so the page never points at a control that is not there.
+
+**It does not prevent anyone reaching another tailnet, and should not be relied on as
+though it does.** This extension only ever sees navigations that *failed*. It does not see
+successful ones, and it cannot stop a user retyping the address, following a link, or
+using a bookmark. Turning the button off removes an invitation, nothing more.
+
+If users must not reach other tailnets, enforce that where it can actually be enforced:
+Tailscale ACLs and sharing policy. A browser extension is the wrong layer, and treating
+this setting as a control would leave you believing something is blocked when it is not.
 
 ### Captive portals, and why the probe is plaintext
 

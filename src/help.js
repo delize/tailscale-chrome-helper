@@ -138,7 +138,12 @@ async function main() {
 
     const steps = el('steps');
     steps.textContent = '';
-    for (const step of copy.steps || []) {
+    for (const rawStep of copy.steps || []) {
+      // A step marked {continueOnly} is about the Continue anyway button, so it goes when
+      // the button does. Pointing at a control that is not there is how the support link
+      // used to behave, and it reads as a bug.
+      if (rawStep.includes('{continueOnly}') && !config.showContinueAnyway) continue;
+      const step = rawStep.replace('{continueOnly}', '');
       const li = document.createElement('li');
       const text = applyTokens(step, tokens);
       // Two things get lifted out of the prose: "toggle", the one word users scan for,
@@ -223,7 +228,7 @@ async function main() {
       suggesting ? `https://${suggestion}/` : '',
       suggesting ? suggestion : ''
     );
-    el('continueAnyway').hidden = !suggesting;
+    el('continueAnyway').hidden = !suggesting || !config.showContinueAnyway;
     // Nothing on this state is about the connection, so the illustration and the retry
     // would both be misleading.
     if (name === 'wrongTailnet') {

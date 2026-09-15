@@ -21,6 +21,10 @@ export const DEFAULTS = {
   // watchedSuffixes, purely to offer a correction. Leaving it off keeps the promise that
   // the extension only touches domains an administrator listed.
   suggestCorrectTailnet: false,
+  // Hides the button only. It cannot stop anyone reaching another tailnet: the extension
+  // sees failed navigations, not all of them, and retyping the address bypasses it
+  // entirely. Real enforcement is Tailscale ACLs and sharing policy, server side.
+  showContinueAnyway: true,
   tailscaleDownloadUrl: 'https://tailscale.com/download',
   // Empty by default, deliberately. Tailscale registers the tailscale:// scheme, but it
   // serves signed deeplinks only. Both tailscale:// and tailscale://connect launch the
@@ -128,7 +132,9 @@ const BRANDED = {
     // not the user's problem: they are trying to get somewhere.
     steps: [
       'If you meant something on your own tailnet, use the corrected address below.',
-      'If you did mean this address, continue anyway.',
+      // The {continueOnly} marker drops the whole step when an administrator has turned
+      // the button off, so the copy never points at something that is not there.
+      '{continueOnly}If you did mean this address, continue anyway.',
     ],
   },
   appDown: {
@@ -298,6 +304,7 @@ export const CLEANERS = {
   checkingLabel: (v) => cleanText(v, 60),
   showInstallLink: (v) => (typeof v === 'boolean' ? v : null),
   suggestCorrectTailnet: (v) => (typeof v === 'boolean' ? v : null),
+  showContinueAnyway: (v) => (typeof v === 'boolean' ? v : null),
   tailscaleDownloadUrl: cleanLink,
   openAppUrl: cleanAppUrl,
   openAppLabel: (v) => cleanText(v, 40),

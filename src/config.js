@@ -123,10 +123,12 @@ const BRANDED = {
     pillConnected: 'Taking you there',
     pillGaveUp: 'Still not reachable',
     headline: 'That address is on a different tailnet',
-    lede: '{host} is not on your tailnet. That can be perfectly normal, because anything shared with you from another tailnet keeps that tailnet\'s name.',
+    lede: '{host} is not on your tailnet. That can be normal, since anything shared with you keeps the name of the tailnet it came from.',
+    // Two choices, two buttons, one line each. The mechanics of cross-tailnet sharing are
+    // not the user's problem: they are trying to get somewhere.
     steps: [
-      'If you meant something on your own tailnet, the corrected address is below.',
-      'If you did mean this one, it should work once Tailscale is connected, provided it has been shared with you. Anything shared from another tailnet has to be reached by its full address, which is what you already have here.',
+      'If you meant something on your own tailnet, use the corrected address below.',
+      'If you did mean this address, continue anyway.',
     ],
   },
   appDown: {

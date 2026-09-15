@@ -17,6 +17,7 @@ rights and that decision is yours.
 
 import argparse
 import hashlib
+import uuid
 import json
 import platform
 import plistlib
@@ -78,6 +79,49 @@ def main() -> int:
     print()
 
     if system == "Darwin":
+        # A configuration profile is the supported route on current macOS. Hand-placing a
+        # file in /Library/Managed Preferences works on older systems but that directory is
+        # meant to be managed by profiles, and on a machine that has never had one it may
+        # not exist at all and may be ignored if created by hand.
+        payload_uuid = str(uuid.uuid4())
+        profile_uuid = str(uuid.uuid4())
+        profile = {
+            "PayloadType": "Configuration",
+            "PayloadVersion": 1,
+            "PayloadIdentifier": "org.local.tailnet-helper.dev",
+            "PayloadUUID": profile_uuid,
+            "PayloadDisplayName": "Tailnet Connection Helper (local testing)",
+            "PayloadDescription": "Local development policy. Remove when finished testing.",
+            "PayloadOrganization": "Local testing",
+            "PayloadScope": "System",
+            "PayloadRemovalDisallowed": False,
+            "PayloadContent": [
+                {
+                    "PayloadType": "com.google.Chrome",
+                    "PayloadVersion": 1,
+                    "PayloadIdentifier": "org.local.tailnet-helper.dev.chrome",
+                    "PayloadUUID": payload_uuid,
+                    "PayloadDisplayName": "Chrome extension policy",
+                    "PayloadEnabled": True,
+                    "3rdparty": {"extensions": {ext_id: config}},
+                }
+            ],
+        }
+        profile_path = out_dir / "tailnet-helper-dev.mobileconfig"
+        profile_path.write_bytes(plistlib.dumps(profile))
+        print(f"Wrote {profile_path}")
+        print()
+        print("RECOMMENDED. Install it as a configuration profile:")
+        print(f'  open "{profile_path}"')
+        print("  Then System Settings > General > Device Management, and approve it.")
+        print("  Quit Chrome fully and reopen, then check chrome://policy.")
+        print()
+        print("  Remove it from that same Device Management pane when finished.")
+        print()
+        print("-" * 70)
+        print("ALTERNATIVE, if you would rather not install a profile:")
+        print()
+
         # Chrome reads managed-storage values from the 3rdparty key of its managed
         # preferences domain. Values must be the real JSON types, not strings.
         payload = {"3rdparty": {"extensions": {ext_id: config}}}
@@ -97,7 +141,9 @@ def main() -> int:
             print("is not managed, rather than running the command below.")
             print()
 
-        print("Install it (needs your password, and restarts Chrome's policy read):")
+        print("  The directory usually does not exist on a machine without MDM, so it has")
+        print("  to be created first. Chrome may still ignore a hand-placed file.")
+        print(f'  sudo mkdir -p "/Library/Managed Preferences"')
         print(f'  sudo cp "{target}" "/Library/Managed Preferences/{BUNDLE}.plist"')
         print("  sudo killall cfprefsd")
         print()

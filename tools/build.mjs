@@ -18,6 +18,7 @@ const INCLUDE = [
   'icons',
   'src/background.js',
   'src/config.js',
+  'src/suppression.js',
   'src/help.html',
   'src/help.css',
   'src/help.js',
@@ -55,6 +56,44 @@ for (const banned of ['tools', 'tests', 'node_modules', 'package.json', 'README.
   if (existsSync(join(DIST, banned))) {
     console.error(`FAIL: ${banned} leaked into dist/`);
     process.exit(1);
+  }
+}
+
+// An allowlist that silently omits a required file is worse than no allowlist: the build
+// succeeds and the extension fails at load. Follow every relative import in the staged
+// JavaScript and assert the target actually made it in.
+const seen = new Set();
+const queue = INCLUDE.filter((e) => e.endsWith('.js'));
+while (queue.length) {
+  const rel = queue.pop();
+  if (seen.has(rel)) continue;
+  seen.add(rel);
+  const staged = join(DIST, rel);
+  if (!existsSync(staged)) continue;
+  const source = readFileSync(staged, 'utf8');
+  for (const match of source.matchAll(/(?:^|\n)\s*import[^'"]*['"](\.[^'"]+)['"]/g)) {
+    const target = join(dirname(rel), match[1]);
+    if (!existsSync(join(DIST, target))) {
+      console.error(`FAIL: ${rel} imports ${match[1]}, which is not in the build`);
+      console.error(`       add "${target}" to INCLUDE in tools/build.mjs`);
+      process.exit(1);
+    }
+    queue.push(target);
+  }
+}
+
+// Same class of mistake in markup: a stylesheet or script the page needs but the build
+// left out.
+for (const rel of INCLUDE.filter((e) => e.endsWith('.html'))) {
+  const source = readFileSync(join(DIST, rel), 'utf8');
+  for (const match of source.matchAll(/(?:src|href)="([^"#:]+)"/g)) {
+    const ref = match[1];
+    if (ref.startsWith('/') || ref.startsWith('data:')) continue;
+    const target = join(dirname(rel), ref);
+    if (!existsSync(join(DIST, target))) {
+      console.error(`FAIL: ${rel} references ${ref}, which is not in the build`);
+      process.exit(1);
+    }
   }
 }
 

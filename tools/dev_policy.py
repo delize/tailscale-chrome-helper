@@ -57,6 +57,16 @@ def main() -> int:
     )
     parser.add_argument("--id", help="extension ID, if you would rather paste it from chrome://extensions")
     parser.add_argument("--config", help="JSON file of settings (default: a sample tenant)")
+    parser.add_argument(
+        "--probe",
+        action="store_true",
+        help=(
+            "Also set ShowHomeButton, a harmless built-in Chrome policy, as a canary. If it "
+            "appears at chrome://policy with source Platform then Chrome is reading this "
+            "file and the problem is specific to extension policy. If it does not appear, "
+            "Chrome is ignoring the file entirely."
+        ),
+    )
     args = parser.parse_args()
 
     ext_dir = Path(args.dir).resolve()
@@ -85,6 +95,50 @@ def main() -> int:
         # not exist at all and may be ignored if created by hand.
         payload_uuid = str(uuid.uuid4())
         profile_uuid = str(uuid.uuid4())
+        # macOS does NOT use the "3rdparty" key. That is the Windows registry and Linux
+        # JSON convention. Chromium's macOS policy loader reads component policy from a
+        # separate preference domain per extension, "com.google.Chrome.extensions.<id>",
+        # with the policy keys at the top level of that domain. A 3rdparty key in the
+        # Chrome domain is read by nobody and fails silently, which is exactly what it
+        # looks like: real Chrome policies apply while every extension section stays empty.
+        payloads = [
+            {
+                "PayloadType": f"com.google.Chrome.extensions.{ext_id}",
+                "PayloadVersion": 1,
+                "PayloadIdentifier": f"org.local.tailnet-helper.dev.{ext_id}",
+                "PayloadUUID": payload_uuid,
+                "PayloadDisplayName": "Tailnet Connection Helper settings",
+                "PayloadEnabled": True,
+                **config,
+            }
+        ]
+
+        if args.probe:
+            # Canary: a built-in Chrome policy, to confirm the profile is read at all.
+            payloads.append(
+                {
+                    "PayloadType": "com.google.Chrome",
+                    "PayloadVersion": 1,
+                    "PayloadIdentifier": "org.local.tailnet-helper.dev.chrome",
+                    "PayloadUUID": str(uuid.uuid4()),
+                    "PayloadDisplayName": "Chrome canary policy",
+                    "PayloadEnabled": True,
+                    "ShowHomeButton": True,
+                }
+            )
+            # Control: the same mechanism applied to a Web Store extension.
+            payloads.append(
+                {
+                    "PayloadType": "com.google.Chrome.extensions.ddkjiahejlhfcafbddmgiahcphecmpfh",
+                    "PayloadVersion": 1,
+                    "PayloadIdentifier": "org.local.tailnet-helper.dev.ublock",
+                    "PayloadUUID": str(uuid.uuid4()),
+                    "PayloadDisplayName": "uBlock Origin Lite control",
+                    "PayloadEnabled": True,
+                    "disableFirstRunPage": True,
+                }
+            )
+
         profile = {
             "PayloadType": "Configuration",
             "PayloadVersion": 1,
@@ -95,17 +149,7 @@ def main() -> int:
             "PayloadOrganization": "Local testing",
             "PayloadScope": "System",
             "PayloadRemovalDisallowed": False,
-            "PayloadContent": [
-                {
-                    "PayloadType": "com.google.Chrome",
-                    "PayloadVersion": 1,
-                    "PayloadIdentifier": "org.local.tailnet-helper.dev.chrome",
-                    "PayloadUUID": payload_uuid,
-                    "PayloadDisplayName": "Chrome extension policy",
-                    "PayloadEnabled": True,
-                    "3rdparty": {"extensions": {ext_id: config}},
-                }
-            ],
+            "PayloadContent": payloads,
         }
         profile_path = out_dir / "tailnet-helper-dev.mobileconfig"
         profile_path.write_bytes(plistlib.dumps(profile))
@@ -156,8 +200,12 @@ def main() -> int:
         print("  sudo killall cfprefsd")
 
     elif system == "Linux":
+        # Linux does use the 3rdparty wrapper, unlike macOS. Extension settings are not
+        # top-level keys in the policy file.
         target = out_dir / f"{ext_id}.json"
-        target.write_text(json.dumps({ext_id: config}, indent=2) + "\n")
+        target.write_text(
+            json.dumps({"3rdparty": {"extensions": {ext_id: config}}}, indent=2) + "\n"
+        )
         print(f"Wrote {target}")
         print()
         print("Install it:")

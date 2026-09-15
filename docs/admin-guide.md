@@ -51,6 +51,51 @@ Use this flat shape. Some vendors document a wrapped form (`{"key": {"Value": "x
 carried over from the Windows registry. This extension expects the flat form, and the
 wrapped form will be discarded.
 
+## Deploying without the Admin console
+
+If you push policy by MDM or by hand rather than through the Admin console, the structure
+differs per platform. Getting it wrong fails silently: `chrome://policy` shows the
+extension's section with **"No policies set"** and nothing anywhere reports an error.
+
+**macOS.** Each extension gets its own preference domain named after its ID, with the
+settings as top-level keys:
+
+```
+com.google.Chrome.extensions.EXTENSION_ID_HERE
+```
+
+macOS does **not** use the `3rdparty` key. That is a Windows and Linux convention, and a
+`3rdparty` key in the `com.google.Chrome` domain is read by nobody. The symptom is
+distinctive: ordinary Chrome policies in the same profile apply correctly while every
+extension section stays empty.
+
+A configuration profile payload looks like this:
+
+```xml
+<key>PayloadType</key>
+<string>com.google.Chrome.extensions.EXTENSION_ID_HERE</string>
+<key>companyName</key>
+<string>Acme</string>
+<key>watchedSuffixes</key>
+<array><string>acme.ts.net</string></array>
+```
+
+**Windows.** Registry values under:
+
+```
+HKLM\Software\Policies\Google\Chrome\3rdparty\extensions\EXTENSION_ID_HERE\policy
+```
+
+**Linux.** A JSON file in `/etc/opt/chrome/policies/managed/`, using the `3rdparty`
+wrapper:
+
+```json
+{ "3rdparty": { "extensions": { "EXTENSION_ID_HERE": { "companyName": "Acme" } } } }
+```
+
+`tools/dev_policy.py` in this repository generates the right shape for whichever platform
+you run it on, and is the fastest way to test a configuration before rolling it out.
+
 ### Confirming it took
 
 Chrome validates your JSON against the schema the extension ships and **silently discards

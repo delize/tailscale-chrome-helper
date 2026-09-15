@@ -119,3 +119,58 @@ input:disabled, textarea:disabled {
 .status { color: var(--muted); font-size: 13px; }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.preview {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.preview h2 {
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+
+.preview p {
+  color: var(--muted);
+  margin: 0 0 14px;
+  font-size: 13px;
+}
+
+.preview .actions {
+  flex-wrap: wrap;
+}
+
+.inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+select {
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+}
+
+.secondary {
+  background: var(--field);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary:hover { border-color: var(--accent); }
+
+.hint {
+  margin: 12px 0 0 !important;
+  font-size: 12px;
+}

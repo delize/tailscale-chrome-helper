@@ -73,7 +73,34 @@ el('form').addEventListener('submit', async (event) => {
   if (remove.length) await new Promise((resolve) => chrome.storage.sync.remove(remove, resolve));
 
   invalidateConfig();
-  await render();
+  await // Opens the real guidance page with the settings as they stand, so an administrator can
+// see what a user will see without having to disconnect anything.
+el('previewBtn').addEventListener('click', async () => {
+  const { config } = await loadConfig({ force: true });
+  const state = el('previewState').value;
+  const hint = el('previewHint');
+
+  if (!chrome?.runtime?.getURL) {
+    hint.textContent =
+      'Preview needs the installed extension. Open this page from chrome://extensions rather than over http.';
+    return;
+  }
+
+  // A representative host on the first watched domain, so the page shows a realistic
+  // address without needing one to actually exist.
+  const suffix = config.watchedSuffixes[0];
+  const url = new URL(chrome.runtime.getURL('src/help.html'));
+  url.searchParams.set('target', `https://app.${suffix}/`);
+  url.searchParams.set('error', 'net::ERR_NAME_NOT_RESOLVED');
+  url.searchParams.set('state', state);
+  url.searchParams.set('preview', '1');
+
+  hint.textContent = '';
+  if (chrome.tabs?.create) chrome.tabs.create({ url: url.toString() });
+  else window.open(url.toString(), '_blank');
+});
+
+render();
 
   // Values that failed validation are dropped on load, so re-rendering shows the user
   // what was actually kept rather than what they typed.
@@ -81,6 +108,33 @@ el('form').addEventListener('submit', async (event) => {
   setTimeout(() => {
     status.textContent = '';
   }, 2000);
+});
+
+// Opens the real guidance page with the settings as they stand, so an administrator can
+// see what a user will see without having to disconnect anything.
+el('previewBtn').addEventListener('click', async () => {
+  const { config } = await loadConfig({ force: true });
+  const state = el('previewState').value;
+  const hint = el('previewHint');
+
+  if (!chrome?.runtime?.getURL) {
+    hint.textContent =
+      'Preview needs the installed extension. Open this page from chrome://extensions rather than over http.';
+    return;
+  }
+
+  // A representative host on the first watched domain, so the page shows a realistic
+  // address without needing one to actually exist.
+  const suffix = config.watchedSuffixes[0];
+  const url = new URL(chrome.runtime.getURL('src/help.html'));
+  url.searchParams.set('target', `https://app.${suffix}/`);
+  url.searchParams.set('error', 'net::ERR_NAME_NOT_RESOLVED');
+  url.searchParams.set('state', state);
+  url.searchParams.set('preview', '1');
+
+  hint.textContent = '';
+  if (chrome.tabs?.create) chrome.tabs.create({ url: url.toString() });
+  else window.open(url.toString(), '_blank');
 });
 
 render();

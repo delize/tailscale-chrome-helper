@@ -68,6 +68,27 @@
           <span class="status" id="status" role="status"></span>
         </div>
       </form>
+
+      <section class="preview">
+        <h2>Check your settings</h2>
+        <p>
+          Open the guidance page exactly as a user would see it, using the settings above.
+          Nothing is changed and no connection is required.
+        </p>
+        <div class="actions">
+          <label class="inline">
+            Situation
+            <select id="previewState">
+              <option value="tailscaleOff">Tailscale is not connected</option>
+              <option value="captivePortal">Network needs sign-in</option>
+              <option value="offline">Device is offline</option>
+              <option value="appDown">App is not responding</option>
+            </select>
+          </label>
+          <button type="button" class="secondary" id="previewBtn">Preview guidance page</button>
+        </div>
+        <p class="hint" id="previewHint"></p>
+      </section>
     </main>
     <script type="module" src="options.js"></script>
   </body>

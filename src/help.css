@@ -160,16 +160,19 @@ code {
 }
 
 /* The 3x3 mark, drawn rather than shipped as an image so it stays crisp at any zoom. */
-.dotgrid {
-  --dot: var(--text);
-  background-image: radial-gradient(var(--dot) 45%, transparent 47%);
-  background-size: 5.5px 5.5px;
-  width: 16.5px;
-  height: 16.5px;
+/* The Tailscale mark is not a uniform grid. The middle row and the bottom centre dot are
+   solid and the rest are faded, which is what a user is actually scanning the menu bar
+   for. Drawing it evenly would make the illustration teach the wrong thing. */
+.mark {
+  width: 17px;
+  height: 17px;
+  display: block;
 }
 
-.dotgrid.faint { --dot: #565b68; }
-.dotgrid.bright { --dot: #eef0f6; }
+.mark.faint { color: #565b68; }
+.mark.bright { color: #eef0f6; }
+
+.tile .mark { width: 22px; height: 22px; }
 
 .illustration-body {
   display: flex;

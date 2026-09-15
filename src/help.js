@@ -236,6 +236,13 @@ async function main() {
     }
   }
 
+  // Preview mode renders the configured page and stops. An administrator checking their
+  // settings should not have the page probe the network or navigate away underneath them.
+  if (params.get('preview')) {
+    el('details').textContent = 'Preview. This page is not checking your connection.';
+    return;
+  }
+
   tick();
   setInterval(tick, config.pollIntervalMs);
 }

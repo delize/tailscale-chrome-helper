@@ -51,8 +51,11 @@ const BRANDED = {
     lede: '{host} could not be reached. That usually means Tailscale is not connected on this device.',
     steps: [
       'Tailscale is almost certainly already running on this device. Look for its icon at the top right of your screen (macOS menu bar) or bottom right (Windows system tray). It is faint while disconnected, which makes it easy to miss. {openApp}',
+      // Before the flip, not after it. Someone who could not find the icon in step one
+      // cannot act on an instruction to click that icon, so the recovery has to come
+      // first or they read past the only step that helps them.
+      'No icon anywhere? Then it is not running. Open Tailscale from Applications on macOS, or search the Start menu on Windows, and sign in with your {company} account if it asks. Its icon appears once it starts.',
       'Click the icon and flip the toggle at the top of the menu, so "Not Connected" becomes "Connected". Opening the app does not connect it for you, that switch still has to be flipped.',
-      'Still nothing? Then Tailscale may not be installed. Look in Applications on macOS, or search the Start menu on Windows, and sign in with your {company} account when it asks.',
       'Stay on this page. It checks every few seconds and takes you to the app automatically once you are connected.',
     ],
   },
@@ -85,7 +88,8 @@ const BRANDED = {
     steps: [
       'Give it a few seconds. This page keeps retrying on its own.',
       'If it stays unavailable, the problem is the app rather than your connection.',
-      'Report it using the button below if this carries on.',
+      // No promise of a button, because supportUrl may be unset and then there is none.
+      'If it carries on, it is worth reporting, since nothing you change locally will fix it.',
     ],
   },
 };

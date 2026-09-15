@@ -35,7 +35,7 @@ body {
 
 .card {
   width: 100%;
-  max-width: 620px;
+  max-width: 1000px;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -126,6 +126,34 @@ code {
   padding: 2px 6px;
   color: var(--text);
   word-break: break-all;
+}
+
+/* Two columns once there is room. Below the breakpoint, and whenever the illustration is
+   hidden, this collapses to one and everything reads in source order. */
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+  margin-top: 4px;
+}
+
+.columns.single {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 620px;
+}
+
+@media (max-width: 900px) {
+  .columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The heading block stays narrow even on a wide card, because a full-width measure is
+   painful to read. */
+h1,
+.lede {
+  max-width: 62ch;
 }
 
 /* Illustration */
@@ -515,7 +543,7 @@ code {
 }
 
 .steps {
-  margin: 20px 0 0;
+  margin: 0;
   padding-left: 20px;
   color: #c6ccd9;
   font-size: 13px;
@@ -565,6 +593,10 @@ a {
   margin-top: 22px;
 }
 
+@media (max-width: 900px) {
+  .steps { margin-top: 20px; }
+}
+
 .primary {
   background: var(--accent);
   color: #14161b;
@@ -612,6 +644,7 @@ a {
 
 @media (max-width: 460px) {
   .card { padding: 20px; }
+  .columns { gap: 0; }
   h1 { font-size: 19px; }
   .illustration-body { flex-direction: column; }
   .icon-key, .menu { width: 100%; }

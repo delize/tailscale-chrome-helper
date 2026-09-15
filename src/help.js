@@ -165,9 +165,19 @@ async function main() {
     // The problem is the app, and nothing in the illustration helps them.
     el('illustration').hidden = connected;
     el('caption').hidden = connected;
+    // With no illustration there is nothing to put beside the steps, so drop to one column
+    // rather than leaving an empty half.
+    el('columns').classList.toggle('single', connected);
 
     // Offering an installer to someone whose client is plainly running is worse than
     // useless, so the download route is tied to the one state that can warrant it.
+    // appDown means Tailscale is up and the app is not answering, which is the one state
+    // the user cannot fix themselves. Waiting for a second failure to offer the support
+    // route just delays the only useful action, and the copy for that state points at the
+    // button directly.
+    const escalate = attemptsReached || name === 'appDown';
+    setLink(el('askIt'), null, escalate ? config.supportUrl : '', config.supportLabel);
+
     const canInstall = config.showInstallLink && name === 'tailscaleOff' && attemptsReached;
     setLink(el('download'), null, canInstall ? config.tailscaleDownloadUrl : '', 'Install Tailscale');
 
@@ -222,7 +232,6 @@ async function main() {
     // sessionStorage can be unavailable. The hint is a nicety, not a need.
   }
   const attemptsReached = attempts >= config.askItAfterAttempts;
-  if (attemptsReached) setLink(el('askIt'), null, config.supportUrl, config.supportLabel);
 
   paint(state);
   if (!resolved) {

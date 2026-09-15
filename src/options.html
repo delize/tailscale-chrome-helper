@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tailnet Connection Helper options</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Tailnet Connection Helper</h1>
+      <p class="intro">
+        These settings shape the page shown when a tailnet app cannot be reached. If your
+        organisation manages this extension, its settings win and appear locked below.
+      </p>
+
+      <div class="managed-note" id="managedNote" hidden>
+        Some settings are set by your administrator and cannot be changed here.
+      </div>
+
+      <form id="form">
+        <label class="check">
+          <input type="checkbox" id="enabled" />
+          <span>
+            Show guidance instead of Chrome's error page
+            <small>Turn this off to leave failed navigations alone without uninstalling.</small>
+          </span>
+        </label>
+
+        <label>
+          Company name
+          <input type="text" id="companyName" placeholder="Acme" />
+          <small>Used in the heading and the illustrated client menu.</small>
+        </label>
+
+        <label>
+          Watched domains
+          <textarea id="watchedSuffixes" rows="3" placeholder="acme.ts.net"></textarea>
+          <small>One per line. Anything else keeps Chrome's normal error page.</small>
+        </label>
+
+        <label>
+          Tailnet name
+          <input type="text" id="tailnetName" placeholder="Acme" />
+          <small>Shown under the account row in the illustration.</small>
+        </label>
+
+        <label>
+          Email domain
+          <input type="text" id="emailDomain" placeholder="acme.com" />
+          <small>Renders the example account as you@acme.com. Illustrative only.</small>
+        </label>
+
+        <label>
+          Support link
+          <input type="text" id="supportUrl" placeholder="https://help.acme.com or mailto:it@acme.com" />
+          <small>Appears after a repeat failure. Must be https, mailto or slack.</small>
+        </label>
+
+        <label>
+          Internal guide link
+          <input type="text" id="connectHelpUrl" placeholder="https://wiki.acme.com/tailscale" />
+          <small>Optional link to your own instructions.</small>
+        </label>
+
+        <div class="actions">
+          <button type="submit" class="primary">Save</button>
+          <span class="status" id="status" role="status"></span>
+        </div>
+      </form>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

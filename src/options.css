@@ -1,0 +1,121 @@
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --text: #16181d;
+  --muted: #5c6373;
+  --line: #d9dde5;
+  --field: #ffffff;
+  --accent: #4a56d2;
+  --note: #fdf4e0;
+  --note-line: #e8c97a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171c;
+    --text: #f2f4f8;
+    --muted: #9aa1b1;
+    --line: #2b303a;
+    --field: #1c1f26;
+    --accent: #8b93f0;
+    --note: #2a2415;
+    --note-line: #6b5a25;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 32px 16px;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+main {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+h1 { font-size: 20px; margin: 0 0 8px; }
+
+.intro { color: var(--muted); margin: 0 0 20px; }
+
+.managed-note {
+  background: var(--note);
+  border: 1px solid var(--note-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+
+form { display: flex; flex-direction: column; gap: 18px; }
+
+label { display: block; font-weight: 600; font-size: 13px; }
+
+label small {
+  display: block;
+  font-weight: 400;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+input[type="text"], textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+}
+
+textarea { resize: vertical; }
+
+input:disabled, textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.check input { margin-top: 3px; }
+
+.locked {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  vertical-align: middle;
+}
+
+.actions { display: flex; align-items: center; gap: 12px; }
+
+.primary {
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  border-radius: 7px;
+  padding: 9px 18px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary:disabled { opacity: 0.5; cursor: default; }
+
+.status { color: var(--muted); font-size: 13px; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

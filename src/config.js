@@ -42,7 +42,10 @@ const BRANDED = {
     lede: '{host} could not be reached. That usually means Tailscale is not connected on this device.',
     steps: [
       'Tailscale is almost certainly already running on this device. Look for its icon at the top right of your screen (macOS menu bar) or bottom right (Windows system tray). It is faint while disconnected, which makes it easy to miss.',
-      'Click it and flip the toggle at the top of the menu, so "Not Connected" becomes "Connected". No icon at all? Press Command Space and type Tailscale (on Windows, search the Start menu), then sign in with your {company} account.',
+      'Click the icon and flip the toggle at the top of the menu, so "Not Connected" becomes "Connected".',
+      // Its own step rather than an aside. Someone who cannot find the icon stops reading
+      // at the point where they cannot follow along, which is exactly where this belongs.
+      'No icon anywhere? Then Tailscale is not running. Open it from Applications on macOS, or press Command Space and type Tailscale. On Windows, search the Start menu. Sign in with your {company} account when it asks.',
       'Stay on this page. It checks every few seconds and takes you to the app automatically once you are connected.',
     ],
   },

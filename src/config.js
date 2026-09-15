@@ -15,7 +15,8 @@ export const DEFAULTS = {
   supportLabel: 'Ask IT',
   tailscaleDownloadUrl: 'https://tailscale.com/download',
   connectHelpUrl: '',
-  controlUrl: 'https://www.gstatic.com/generate_204',
+  controlUrl: 'http://connectivitycheck.gstatic.com/generate_204',
+  portalUrl: 'http://neverssl.com/',
   logoDataUrl: '',
   probeTimeoutMs: 1500,
   targetTimeoutMs: 4000,
@@ -61,6 +62,8 @@ const BRANDED = {
   },
   appDown: {
     pill: 'Tailscale is connected',
+    pillProbing: 'Tailscale is connected, reaching the app',
+    pillConnected: 'Connected, taking you to the app',
     headline: 'The app is not responding yet',
     lede: 'Tailscale is connected, but {host} has not answered. The app may still be starting, or it may be down.',
     steps: [
@@ -72,19 +75,18 @@ const BRANDED = {
 };
 
 // Copy used on an unmanaged install, where naming a company would be a guess.
+// Spread BRANDED first so a state added later inherits automatically. Enumerating states
+// here by hand meant a new one rendered a literal "undefined" on unconfigured installs.
+// Only the sentence that names the company differs, so only that is overridden.
 const NEUTRAL = {
+  ...BRANDED,
   tailscaleOff: {
     ...BRANDED.tailscaleOff,
     headline: 'This app is on a private network',
-    steps: [
-      BRANDED.tailscaleOff.steps[0],
-      'Click it and flip the toggle at the top of the menu, so "Not Connected" becomes "Connected". No icon at all? Press Command Space and type Tailscale (on Windows, search the Start menu), then sign in with your work account.',
-      BRANDED.tailscaleOff.steps[2],
-    ],
+    steps: BRANDED.tailscaleOff.steps.map((step) =>
+      step.replace('your {company} account', 'your work account')
+    ),
   },
-  captivePortal: BRANDED.captivePortal,
-  offline: BRANDED.offline,
-  appDown: BRANDED.appDown,
 };
 
 export function defaultStrings(hasCompany) {
@@ -131,9 +133,31 @@ function cleanLink(value) {
   }
 }
 
+// A probe target, not a link. It must be fetchable, so the support-link schemes are wrong
+// here: a mailto: in this field made every fetch throw, which the caller reads as "offline"
+// and pins the whole tenant to the wrong state. Plain http is required rather than merely
+// allowed, because a captive portal cannot answer an https probe without a valid
+// certificate, so https can only ever report offline.
+function cleanProbeUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+// Data URIs only, so the page never makes an outbound request for a logo. The delimiter
+// after the subtype may be ';' (a parameter follows) or ',' (the data starts), and
+// requiring ';' rejected the unparameterised form most SVG-to-data-URI tools emit.
+const MAX_LOGO_BYTES = 256 * 1024;
+
 function cleanImage(value) {
   if (typeof value !== 'string') return null;
-  return /^data:image\/(png|jpeg|gif|webp|svg\+xml);/i.test(value.trim()) ? value.trim() : null;
+  const trimmed = value.trim();
+  if (trimmed.length > MAX_LOGO_BYTES) return null;
+  return /^data:image\/(png|jpeg|gif|webp|svg\+xml)[;,]/i.test(trimmed) ? trimmed : null;
 }
 
 function cleanInt(value, min, max) {
@@ -155,7 +179,7 @@ function cleanStrings(value) {
     const src = value[state];
     if (!src || typeof src !== 'object') continue;
     const dst = {};
-    for (const field of ['pill', 'headline', 'lede']) {
+    for (const field of ['pill', 'pillProbing', 'pillConnected', 'headline', 'lede']) {
       const text = cleanText(src[field]);
       if (text !== null) dst[field] = text;
     }
@@ -168,7 +192,7 @@ function cleanStrings(value) {
   return Object.keys(out).length ? out : null;
 }
 
-const CLEANERS = {
+export const CLEANERS = {
   enabled: (v) => (typeof v === 'boolean' ? v : null),
   companyName: (v) => cleanText(v, 80),
   watchedSuffixes: cleanSuffixes,
@@ -178,12 +202,15 @@ const CLEANERS = {
   supportLabel: (v) => cleanText(v, 40),
   tailscaleDownloadUrl: cleanLink,
   connectHelpUrl: cleanLink,
-  controlUrl: cleanLink,
+  controlUrl: cleanProbeUrl,
+  portalUrl: cleanProbeUrl,
   logoDataUrl: cleanImage,
   probeTimeoutMs: (v) => cleanInt(v, 200, 30000),
   targetTimeoutMs: (v) => cleanInt(v, 200, 30000),
   pollIntervalMs: (v) => cleanInt(v, 500, 60000),
-  suppressMs: (v) => cleanInt(v, 0, 120000),
+  // Floor of 1 rather than 0: zero reads as 'do not suppress' and silently reinstates
+  // the Back-button bounce the map exists to prevent.
+  suppressMs: (v) => cleanInt(v, 1, 120000),
   askItAfterAttempts: (v) => cleanInt(v, 1, 20),
   strings: cleanStrings,
 };
@@ -210,16 +237,20 @@ export async function loadConfig({ force = false } = {}) {
   const config = { ...DEFAULTS };
   const managedKeys = new Set();
 
+  const rejected = [];
+
   for (const key of Object.keys(DEFAULTS)) {
     const clean = CLEANERS[key];
     if (Object.prototype.hasOwnProperty.call(managed, key)) {
       const value = clean(managed[key]);
-      if (value !== null) {
-        config[key] = value;
-        // The key is locked because policy set it, even if the value equals the default.
-        managedKeys.add(key);
-        continue;
-      }
+      // The key is locked because policy set it, whether or not the value was usable.
+      // Falling through to sync on a bad value would let an administrator's typo hand
+      // control to whatever the user had typed, which is an enterprise control failing
+      // open. A rejected value keeps the built-in default instead, and is reported.
+      managedKeys.add(key);
+      if (value !== null) config[key] = value;
+      else rejected.push(key);
+      continue;
     }
     if (Object.prototype.hasOwnProperty.call(sync, key)) {
       const value = clean(sync[key]);
@@ -227,7 +258,17 @@ export async function loadConfig({ force = false } = {}) {
     }
   }
 
-  cached = { config, managedKeys };
+  if (rejected.length) {
+    // The only signal an administrator gets. chrome://policy shows the value as applied,
+    // because Chrome validated it against the schema and this extension's rules are
+    // stricter, so without this the rejection is invisible everywhere.
+    console.warn(
+      '[tailnet-helper] policy values rejected, defaults used instead:',
+      rejected.join(', ')
+    );
+  }
+
+  cached = { config, managedKeys, rejected };
   return cached;
 }
 
@@ -246,7 +287,10 @@ export function watchConfig(onChange) {
 
 export function matchesWatched(rawUrl, suffixes) {
   try {
-    const host = new URL(rawUrl).hostname.toLowerCase();
+    // Drop a trailing root dot. cleanSuffixes already strips it from the configured side,
+    // and https://host.example./ is a valid FQDN users really do paste, precisely when
+    // their DNS search domain is misbehaving, which is when this extension fires.
+    const host = new URL(rawUrl).hostname.toLowerCase().replace(/\.$/, '');
     return suffixes.some((suffix) => host === suffix || host.endsWith('.' + suffix));
   } catch {
     return false;

@@ -16,9 +16,8 @@ globalThis.chrome = {
   runtime: {},
 };
 
-const { loadConfig, invalidateConfig, matchesWatched, applyTokens, DEFAULTS } = await import(
-  '../src/config.js'
-);
+const { loadConfig, invalidateConfig, matchesWatched, applyTokens, defaultStrings, DEFAULTS, STATES } =
+  await import('../src/config.js');
 
 async function resolve(managed = {}, sync = {}) {
   MANAGED = managed;
@@ -39,13 +38,77 @@ test('managed beats sync beats defaults', async () => {
   assert.ok(!managedKeys.has('tailnetName'));
 });
 
-test('a managed value that fails validation falls through rather than locking the key', async () => {
-  const { config, managedKeys } = await resolve(
+test('a rejected policy value keeps the default and never falls through to the user', async () => {
+  const { config, managedKeys, rejected } = await resolve(
     { supportUrl: 'javascript:alert(1)' },
     { supportUrl: 'https://help.example.com/' }
   );
-  assert.equal(config.supportUrl, 'https://help.example.com/');
-  assert.ok(!managedKeys.has('supportUrl'), 'a rejected policy value must not lock the field');
+  // Falling through to sync here would let an admin typo hand control to the user.
+  assert.equal(config.supportUrl, DEFAULTS.supportUrl);
+  assert.ok(managedKeys.has('supportUrl'), 'a policy-set key stays locked even when rejected');
+  assert.ok(rejected.includes('supportUrl'), 'the rejection is reported to the admin');
+});
+
+test('a typo in watchedSuffixes never widens scope beyond what the admin wrote', async () => {
+  // A comma for a dot previously resolved to the ts.net default, silently watching every
+  // tailnet on the internet instead of one.
+  const { config, rejected } = await resolve({ watchedSuffixes: ['acme.ts,net'] });
+  assert.ok(rejected.includes('watchedSuffixes'));
+  assert.deepEqual(config.watchedSuffixes, DEFAULTS.watchedSuffixes);
+});
+
+test('controlUrl rejects schemes that cannot be fetched', async () => {
+  for (const bad of ['mailto:it@acme.com', 'slack://x', 'javascript:alert(1)']) {
+    const { config } = await resolve({ controlUrl: bad });
+    assert.equal(config.controlUrl, DEFAULTS.controlUrl, `${bad} must be rejected`);
+  }
+  const { config } = await resolve({ controlUrl: 'http://portal.example/generate_204' });
+  assert.equal(config.controlUrl, 'http://portal.example/generate_204');
+});
+
+test('logo data URIs are accepted with either delimiter and capped in size', async () => {
+  const accept = [
+    'data:image/png;base64,AA',
+    'data:image/png,AAA',
+    'data:image/svg+xml,<svg/>',
+    'data:image/svg+xml;charset=utf-8,x',
+  ];
+  for (const v of accept) {
+    const { config } = await resolve({ logoDataUrl: v });
+    assert.equal(config.logoDataUrl, v, `${v} must be accepted`);
+  }
+  for (const v of ['data:text/html;base64,AA', 'https://cdn.example/logo.png']) {
+    const { config } = await resolve({ logoDataUrl: v });
+    assert.equal(config.logoDataUrl, '', `${v} must be rejected`);
+  }
+  const huge = 'data:image/png;base64,' + 'A'.repeat(300 * 1024);
+  const { config } = await resolve({ logoDataUrl: huge });
+  assert.equal(config.logoDataUrl, '', 'an oversized logo must be rejected');
+});
+
+test('suppressMs cannot be set to zero, which would disable the Back guard', async () => {
+  const { config } = await resolve({ suppressMs: 0 });
+  assert.equal(config.suppressMs, 1);
+});
+
+test('default copy covers every state in both branded and neutral modes', async () => {
+  for (const hasCompany of [true, false]) {
+    const copy = defaultStrings(hasCompany);
+    for (const state of STATES) {
+      assert.ok(copy[state], `${state} missing when hasCompany=${hasCompany}`);
+      for (const field of ['pill', 'headline', 'lede', 'steps']) {
+        assert.ok(copy[state][field], `${state}.${field} missing when hasCompany=${hasCompany}`);
+      }
+    }
+  }
+});
+
+test('neutral copy names no company', () => {
+  const neutral = defaultStrings(false);
+  for (const state of STATES) {
+    const blob = JSON.stringify(neutral[state]);
+    assert.ok(!blob.includes('{company}'), `${state} still interpolates a company name`);
+  }
 });
 
 test('links are restricted to safe schemes', async () => {
@@ -109,6 +172,9 @@ test('host matching covers the suffix and its subdomains but not lookalikes', ()
   // The guard that matters: a suffix must not match a domain that merely ends in the text.
   assert.ok(!matchesWatched('https://evilacme.ts.net/', suffixes));
   assert.ok(!matchesWatched('not a url', suffixes));
+  // A trailing root dot is a valid FQDN and must still match.
+  assert.ok(matchesWatched('https://acme.ts.net./', suffixes));
+  assert.ok(matchesWatched('https://back-office.acme.ts.net./', suffixes));
 });
 
 test('tokens substitute known keys and leave unknown ones alone', () => {

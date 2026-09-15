@@ -2,7 +2,7 @@
 // that exists in code but not in the administrator-facing schema, or vice versa.
 
 import { readFileSync } from 'node:fs';
-import { DEFAULTS, STATES } from '../src/config.js';
+import { DEFAULTS, STATES, CLEANERS, defaultStrings } from '../src/config.js';
 
 const schema = JSON.parse(readFileSync(new URL('../schema.json', import.meta.url)));
 const manifest = JSON.parse(readFileSync(new URL('../manifest.json', import.meta.url)));
@@ -34,9 +34,49 @@ for (const state of STATES) {
   }
 }
 
+// Every config key must have a validator. Without one, loadConfig calls undefined and
+// throws inside the navigation listener, which kills the extension for exactly the tenant
+// who set that key and for nobody else, so it never shows up in testing.
+const cleanerKeys = Object.keys(CLEANERS);
+for (const key of defaultKeys) {
+  if (!cleanerKeys.includes(key)) problems.push(`DEFAULTS has "${key}" but CLEANERS does not`);
+}
+for (const key of cleanerKeys) {
+  if (!defaultKeys.includes(key)) problems.push(`CLEANERS has "${key}" but DEFAULTS does not`);
+}
+
+// Default copy must cover every state in both modes. A state missing from the neutral set
+// renders a literal "undefined" to users, and only on unconfigured installs.
+for (const hasCompany of [true, false]) {
+  const copy = defaultStrings(hasCompany);
+  for (const state of STATES) {
+    for (const field of ['pill', 'headline', 'lede', 'steps']) {
+      if (!copy[state]?.[field]) {
+        problems.push(`defaultStrings(${hasCompany}) is missing ${state}.${field}`);
+      }
+    }
+  }
+}
+
+// The four inlined schema blocks must expose exactly the fields cleanStrings accepts.
+const COPY_FIELDS = ['pill', 'headline', 'lede', 'steps'];
+for (const state of STATES) {
+  const block = schema.properties.strings.properties[state];
+  if (!block) continue;
+  const fields = Object.keys(block.properties || {});
+  const missing = COPY_FIELDS.filter((f) => !fields.includes(f));
+  if (missing.length) problems.push(`schema strings.${state} is missing ${missing.join(', ')}`);
+}
+
+// Exposing the guidance page to the web would turn it into a ready-made phishing template:
+// extension origin, tenant branding, attacker-chosen hostname and "sign in" copy.
+if ('web_accessible_resources' in manifest) {
+  problems.push('web_accessible_resources would expose help.html to any web page');
+}
+
 // The permission set is the thing most likely to creep. Fail loudly if it grows.
 const expectedPerms = ['webNavigation', 'storage'];
-const expectedHosts = ['http://100.100.100.100/'];
+const expectedHosts = ['http://100.100.100.100/', 'http://connectivitycheck.gstatic.com/'];
 if (manifest.permissions.join() !== expectedPerms.join()) {
   problems.push(`permissions changed to [${manifest.permissions}], expected [${expectedPerms}]`);
 }

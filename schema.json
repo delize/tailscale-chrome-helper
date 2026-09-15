@@ -54,7 +54,12 @@
     },
     "controlUrl": {
       "title": "Connectivity check URL",
-      "description": "Public endpoint used to tell 'Tailscale is off' apart from 'this network needs a captive portal sign-in'. Fetched no-cors with no user data. Override if your network blocks the default.",
+      "description": "Plaintext http endpoint used to tell 'Tailscale is off' apart from 'this network needs a captive portal sign-in'. Must be http, not https: a portal cannot intercept https without a certificate the browser rejects, so an https probe can only ever report offline. Should answer 204 with no body. Fetched with no user data attached.",
+      "type": "string"
+    },
+    "portalUrl": {
+      "title": "Portal sign-in helper link",
+      "description": "Plaintext http page offered as a button when a captive portal is detected. Opening any non-https page is what forces the network's sign-in screen to appear. Defaults to http://neverssl.com/, which exists for this purpose.",
       "type": "string"
     },
     "logoDataUrl": {
@@ -100,6 +105,14 @@
               "description": "Short status label in the chip at the top of the page.",
               "type": "string"
             },
+            "pillProbing": {
+              "description": "Status label while the page is checking whether the app answers.",
+              "type": "string"
+            },
+            "pillConnected": {
+              "description": "Status label shown just before the page returns the user to the app.",
+              "type": "string"
+            },
             "headline": {
               "description": "Main heading. Placeholders are substituted as plain text.",
               "type": "string"
@@ -123,6 +136,14 @@
           "properties": {
             "pill": {
               "description": "Short status label in the chip at the top of the page.",
+              "type": "string"
+            },
+            "pillProbing": {
+              "description": "Status label while the page is checking whether the app answers.",
+              "type": "string"
+            },
+            "pillConnected": {
+              "description": "Status label shown just before the page returns the user to the app.",
               "type": "string"
             },
             "headline": {
@@ -150,6 +171,14 @@
               "description": "Short status label in the chip at the top of the page.",
               "type": "string"
             },
+            "pillProbing": {
+              "description": "Status label while the page is checking whether the app answers.",
+              "type": "string"
+            },
+            "pillConnected": {
+              "description": "Status label shown just before the page returns the user to the app.",
+              "type": "string"
+            },
             "headline": {
               "description": "Main heading. Placeholders are substituted as plain text.",
               "type": "string"
@@ -173,6 +202,14 @@
           "properties": {
             "pill": {
               "description": "Short status label in the chip at the top of the page.",
+              "type": "string"
+            },
+            "pillProbing": {
+              "description": "Status label while the page is checking whether the app answers.",
+              "type": "string"
+            },
+            "pillConnected": {
+              "description": "Status label shown just before the page returns the user to the app.",
               "type": "string"
             },
             "headline": {

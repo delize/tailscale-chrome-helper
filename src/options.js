@@ -26,7 +26,7 @@ function lock(input, isManaged) {
 }
 
 async function render() {
-  const { config, managedKeys } = await loadConfig({ force: true });
+  const { config, managedKeys, rejected } = await loadConfig({ force: true });
 
   el('enabled').checked = config.enabled;
   lock(el('enabled'), managedKeys.has('enabled'));
@@ -40,6 +40,16 @@ async function render() {
   lock(el('watchedSuffixes'), managedKeys.has('watchedSuffixes'));
 
   if (managedKeys.size) el('managedNote').hidden = false;
+
+  // chrome://policy shows a value as applied even when this extension rejected it, because
+  // Chrome only validates it against the schema. This is the one place an admin finds out.
+  if (rejected?.length) {
+    const note = el('rejectedNote');
+    note.textContent =
+      'Your administrator set these, but the values could not be used, so defaults apply: ' +
+      rejected.join(', ');
+    note.hidden = false;
+  }
 }
 
 el('form').addEventListener('submit', async (event) => {
@@ -69,8 +79,23 @@ el('form').addEventListener('submit', async (event) => {
     else remove.push('watchedSuffixes');
   }
 
-  await new Promise((resolve) => chrome.storage.sync.set(patch, resolve));
-  if (remove.length) await new Promise((resolve) => chrome.storage.sync.remove(remove, resolve));
+  // chrome.storage reports failure through lastError rather than by throwing, so without
+  // this a quota or sync failure produced a cheerful "Saved" over a form that had silently
+  // reverted to its old values.
+  const write = (fn, arg) =>
+    new Promise((resolve, reject) =>
+      fn(arg, () => (chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve()))
+    );
+
+  try {
+    await write(chrome.storage.sync.set.bind(chrome.storage.sync), patch);
+    if (remove.length) {
+      await write(chrome.storage.sync.remove.bind(chrome.storage.sync), remove);
+    }
+  } catch (error) {
+    status.textContent = `Could not save: ${error.message || 'storage error'}`;
+    return;
+  }
 
   invalidateConfig();
   await // Opens the real guidance page with the settings as they stand, so an administrator can

@@ -14,6 +14,16 @@ const PILL_TONE = {
 
 const el = (id) => document.getElementById(id);
 
+// Only reachable by hand-editing the URL, since the worker always supplies a validated
+// target. It still reaches the headline, so it is shaped and capped like anything else.
+const HOSTNAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
+
+function cleanHostParam(value) {
+  if (typeof value !== 'string') return '';
+  const host = value.trim().toLowerCase().slice(0, 120).replace(/\.$/, '');
+  return HOSTNAME.test(host) ? host : '';
+}
+
 // Only navigate back to URLs on a watched tailnet. The target arrives as a query
 // parameter in a URL the user can edit, so it is validated rather than trusted.
 function parseTarget(suffixes) {
@@ -77,7 +87,7 @@ async function main() {
   const company = config.companyName;
   const tokens = {
     company: company || 'your organisation',
-    host: target ? target.hostname : params.get('host') || 'The app',
+    host: target ? target.hostname : cleanHostParam(params.get('host')) || 'The app',
     error: params.get('error') || '',
     tailnetName: config.tailnetName || company || 'your tailnet',
     exampleEmail: config.emailDomain ? `you@${config.emailDomain}` : 'you@example.com',
@@ -130,6 +140,15 @@ async function main() {
     // useless, so the download route is tied to the one state that can warrant it.
     const canInstall = name === 'tailscaleOff' && attemptsReached;
     setLink(el('download'), null, canInstall ? config.tailscaleDownloadUrl : '', 'Install Tailscale');
+
+    // Loading any plaintext page is what forces a captive portal to show its sign-in
+    // screen, so on that state the page offers one rather than describing the trick.
+    setLink(
+      el('portal'),
+      null,
+      name === 'captivePortal' ? config.portalUrl : '',
+      'Open the sign-in page'
+    );
   }
 
   // Illustration identity, from config rather than a baked-in screenshot.
@@ -189,8 +208,14 @@ async function main() {
   }
 
   // Without a host permission for the tailnet host the status code is unreadable, so this
-  // fetches no-cors and treats "did not throw" as reachable. An opaque response also
-  // covers the SSO bounce, where a redirect to the identity provider proves the app is up.
+  // fetches no-cors and treats "did not throw" as reachable.
+  //
+  // redirect: 'follow' is deliberate. A tailnet app commonly answers by bouncing to an
+  // identity provider on a completely different domain (Okta, Entra, Ping). That hop is
+  // proof the app is up, not a failure, so the redirect chain is followed wherever it
+  // leads and the opaque result is treated as success. Only the original ts.net URL is
+  // ever navigated to; where it forwards the user afterwards is the browser's business,
+  // not this extension's.
   async function appResponds() {
     if (!target) return false;
     const controller = new AbortController();
@@ -225,11 +250,12 @@ async function main() {
       if (state !== 'appDown') return;
       if (!target) return;
 
-      el('pillText').textContent = 'Tailscale is connected, reaching the app';
+      const copy = copyFor('appDown');
+      el('pillText').textContent = applyTokens(copy.pillProbing || copy.pill, tokens);
       if (await appResponds()) {
         redirecting = true;
         el('pill').dataset.state = 'ok';
-        el('pillText').textContent = 'Connected, taking you to the app';
+        el('pillText').textContent = applyTokens(copy.pillConnected || copy.pill, tokens);
         try {
           sessionStorage.removeItem(attemptsKey);
         } catch {

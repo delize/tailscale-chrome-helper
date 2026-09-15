@@ -174,3 +174,21 @@ select {
   margin: 12px 0 0 !important;
   font-size: 12px;
 }
+
+.rejected-note {
+  background: #3a1f1f;
+  border: 1px solid #7a3a3a;
+  color: #f3d6d6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+
+@media (prefers-color-scheme: light) {
+  .rejected-note {
+    background: #fdecec;
+    border-color: #e6a5a5;
+    color: #7a2020;
+  }
+}

@@ -172,11 +172,11 @@ code {
 /* Connected lights up the middle row and the bottom centre dot, forming a faint t. The
    other five stay recessed. Disconnected is the whole grid evenly dim with no pattern at
    all, which is the difference a user is actually scanning their menu bar for. */
-.mark .dim { opacity: 0.3; }
-.mark.faint .dim { opacity: 1; }
-
-.mark.faint { color: #565b68; }
-.mark.bright { color: #eef0f6; }
+/* --dim-op rather than a rule on .dim, because <use> clones the symbol into a shadow tree
+   that document stylesheets cannot style. Custom properties inherit across that boundary,
+   inherited colour does too, and that is the whole reason this works. */
+.mark.faint { color: #565b68; --dim-op: 1; }
+.mark.bright { color: #eef0f6; --dim-op: 0.3; }
 
 .tile .mark { width: 22px; height: 22px; }
 
@@ -263,10 +263,10 @@ code {
 
 /* The tray icon is what the user will actually watch change on their own screen, so it
    brightens in step with the toggle rather than sitting permanently connected. */
-.illustration.demo .menubar .mark { animation: markConnect 4.5s ease-in-out infinite; }
 /* The tray icon has to change shape as well as brightness, or the demo shows the wrong
    before-state: evenly dim while disconnected, the t emerging on connect. */
-.illustration.demo .menubar .mark .dim { animation: dimPhase 4.5s ease-in-out infinite; }
+.illustration.demo .menubar .mark { animation: markConnect 4.5s ease-in-out infinite,
+    dimPhase 4.5s ease-in-out infinite; }
 .illustration.demo .glyph-active { animation: trayConnect 4.5s ease-in-out infinite; }
 
 @keyframes markConnect {
@@ -275,10 +275,12 @@ code {
   100% { color: #565b68; }
 }
 
+/* Set on the host, not the circles, for the same shadow-tree reason. A custom property
+   steps rather than interpolates, which is right here: the icon flips state. */
 @keyframes dimPhase {
-  0%, 38% { opacity: 1; }
-  50%, 88% { opacity: 0.3; }
-  100% { opacity: 1; }
+  0%, 38% { --dim-op: 1; }
+  50%, 88% { --dim-op: 0.3; }
+  100% { --dim-op: 1; }
 }
 
 @keyframes trayConnect {
@@ -409,7 +411,6 @@ code {
   .illustration.demo .state-on,
   .illustration.demo .toggle::after,
   .illustration.demo .menubar .mark,
-  .illustration.demo .menubar .mark .dim,
   .illustration.demo .glyph-active {
     animation: none;
   }

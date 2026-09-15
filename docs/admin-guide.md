@@ -122,6 +122,8 @@ Policy changes apply without a browser restart.
 | `supportLabel` | string | `Ask IT` | Text on the escalation button. |
 | `showInstallLink` | boolean | `true` | Set false where Tailscale is deployed by MDM, so users are not told to install it themselves. |
 | `tailscaleDownloadUrl` | string | Tailscale's download page | Offered only when Tailscale is not running, and only if `showInstallLink` is true. |
+| `openAppUrl` | string | `tailscale://connect` | Link that launches the installed client. Accepts `tailscale:` or `https:`. Empty hides it. |
+| `openAppLabel` | string | `Open Tailscale` | Text of that link. |
 | `connectHelpUrl` | string | unset | Link to your own runbook. |
 | `controlUrl` | string | `http://connectivitycheck.gstatic.com/generate_204` | Captive portal probe. Must be **http**, see below. |
 | `portalUrl` | string | `http://neverssl.com/` | Plaintext page offered as a button to force a portal sign-in screen. |
@@ -193,6 +195,18 @@ Without that, a failed navigation to the IdP falls outside the watch list and th
 gets Chrome's plain error page. Do not add a public IdP such as `okta.com` this way. It is
 reachable without Tailscale, so a failure there is a real outage and the guidance would be
 wrong.
+
+### Launching the client
+
+The first step offers a link that opens Tailscale directly, for users who cannot find the
+icon in their menu bar or system tray. It uses the `tailscale://connect` scheme the client
+registers, so Chrome shows its usual "Open Tailscale.app?" permission prompt first.
+
+It only opens the app. It does not connect, and the user still has to flip the toggle,
+which the copy says plainly so nobody clicks it and assumes they are done.
+
+Point `openAppUrl` at an `https:` URL instead if you would rather route people through a
+self-service portal, or set it empty to remove the link.
 
 ### Captive portals, and why the probe is plaintext
 

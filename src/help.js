@@ -112,18 +112,27 @@ async function main() {
     steps.textContent = '';
     for (const step of copy.steps || []) {
       const li = document.createElement('li');
-      // "toggle" is the one word users hunt for, so it stays emphasised.
       const text = applyTokens(step, tokens);
-      const parts = text.split(/\b(toggle)\b/);
-      parts.forEach((part, i) => {
-        if (i % 2 === 1) {
+      // Two things get lifted out of the prose: "toggle", the one word users scan for,
+      // and {openApp}, which becomes a real link so the page can launch the client rather
+      // than describe where to find it.
+      for (const part of text.split(/(\{openApp\}|\btoggle\b)/)) {
+        if (part === 'toggle') {
           const strong = document.createElement('strong');
           strong.textContent = part;
           li.appendChild(strong);
+        } else if (part === '{openApp}') {
+          // Silently drops out when an administrator has cleared the URL.
+          if (!config.openAppUrl) continue;
+          const a = document.createElement('a');
+          a.className = 'inline-action';
+          a.href = config.openAppUrl;
+          a.textContent = config.openAppLabel;
+          li.appendChild(a);
         } else if (part) {
           li.appendChild(document.createTextNode(part));
         }
-      });
+      }
       steps.appendChild(li);
     }
 

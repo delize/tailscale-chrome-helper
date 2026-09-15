@@ -18,6 +18,11 @@ export const DEFAULTS = {
   // client for them. Fleets that deploy Tailscale by MDM turn it off.
   showInstallLink: true,
   tailscaleDownloadUrl: 'https://tailscale.com/download',
+  // Tailscale registers this scheme, so the page can launch the app instead of describing
+  // where to find it. It only opens the client, it does not connect, and Chrome shows a
+  // permission prompt first. Both facts are reflected in the copy.
+  openAppUrl: 'tailscale://connect',
+  openAppLabel: 'Open Tailscale',
   connectHelpUrl: '',
   controlUrl: 'http://connectivitycheck.gstatic.com/generate_204',
   portalUrl: 'http://neverssl.com/',
@@ -41,11 +46,9 @@ const BRANDED = {
     headline: "This app is on {company}'s private network",
     lede: '{host} could not be reached. That usually means Tailscale is not connected on this device.',
     steps: [
-      'Tailscale is almost certainly already running on this device. Look for its icon at the top right of your screen (macOS menu bar) or bottom right (Windows system tray). It is faint while disconnected, which makes it easy to miss.',
-      'Click the icon and flip the toggle at the top of the menu, so "Not Connected" becomes "Connected".',
-      // Its own step rather than an aside. Someone who cannot find the icon stops reading
-      // at the point where they cannot follow along, which is exactly where this belongs.
-      'No icon anywhere? Then Tailscale is not running. Open it from Applications on macOS, or press Command Space and type Tailscale. On Windows, search the Start menu. Sign in with your {company} account when it asks.',
+      'Tailscale is almost certainly already running on this device. Look for its icon at the top right of your screen (macOS menu bar) or bottom right (Windows system tray). It is faint while disconnected, which makes it easy to miss. Cannot see it? {openApp}',
+      'Click the icon and flip the toggle at the top of the menu, so "Not Connected" becomes "Connected". Opening the app does not connect it for you, that switch still has to be flipped.',
+      'Still nothing? Then Tailscale may not be installed. Look in Applications on macOS, or search the Start menu on Windows, and sign in with your {company} account when it asks.',
       'Stay on this page. It checks every few seconds and takes you to the app automatically once you are connected.',
     ],
   },
@@ -172,6 +175,19 @@ function cleanImage(value, maxBytes = MAX_LOGO_BYTES) {
 // A strict hex pattern, not a general colour parser. The value is written into a CSS
 // custom property, so anything that could carry a semicolon or a url() would be injecting
 // CSS into a privileged page. Six or three digit hex cannot.
+// Launching a local application, so the allowlist differs from a support link: the custom
+// scheme is the point, and mailto would be meaningless. https stays permitted for
+// organisations that route this through a self-service portal instead.
+function cleanAppUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    return ['tailscale:', 'https:'].includes(url.protocol) ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 function cleanColor(value) {
   if (typeof value !== 'string') return null;
   const hex = value.trim();
@@ -221,6 +237,8 @@ export const CLEANERS = {
   checkingLabel: (v) => cleanText(v, 60),
   showInstallLink: (v) => (typeof v === 'boolean' ? v : null),
   tailscaleDownloadUrl: cleanLink,
+  openAppUrl: cleanAppUrl,
+  openAppLabel: (v) => cleanText(v, 40),
   connectHelpUrl: cleanLink,
   controlUrl: cleanProbeUrl,
   portalUrl: cleanProbeUrl,

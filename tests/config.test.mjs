@@ -86,6 +86,19 @@ test('logo data URIs are accepted with either delimiter and capped in size', asy
   assert.equal(config.logoDataUrl, '', 'an oversized logo must be rejected');
 });
 
+test('openAppUrl allows the app scheme but not arbitrary ones', async () => {
+  for (const good of ['tailscale://connect', 'https://selfservice.acme.com/tailscale']) {
+    const { config } = await resolve({ openAppUrl: good });
+    assert.ok(config.openAppUrl.startsWith(good.split('://')[0]), `${good} must be accepted`);
+  }
+  // This value becomes an href on a privileged page, so the allowlist is explicit rather
+  // than "any custom scheme".
+  for (const bad of ['javascript:alert(1)', 'file:///etc/passwd', 'data:text/html,<script>', 'mailto:x@y.z']) {
+    const { config } = await resolve({ openAppUrl: bad });
+    assert.equal(config.openAppUrl, DEFAULTS.openAppUrl, `${bad} must be rejected`);
+  }
+});
+
 test('accentColor accepts only plain hex, because it lands in a CSS property', async () => {
   for (const good of ['#4a63d8', '#ABC', '#abcdef']) {
     const { config } = await resolve({ accentColor: good });

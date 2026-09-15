@@ -57,6 +57,16 @@
       "description": "Shown to users who have no Tailscale client at all. Defaults to the official download page.",
       "type": "string"
     },
+    "openAppUrl": {
+      "title": "Open Tailscale link",
+      "description": "Link offered to a user who cannot find the Tailscale icon. Defaults to tailscale://connect, which launches the installed client after Chrome asks permission. It opens the app only, it does not connect. Accepts a tailscale: or https: URL, so a self-service portal can be used instead. Leave empty to hide the link.",
+      "type": "string"
+    },
+    "openAppLabel": {
+      "title": "Open Tailscale link label",
+      "description": "Text of that link. Defaults to 'Open Tailscale'.",
+      "type": "string"
+    },
     "connectHelpUrl": {
       "title": "Internal runbook link",
       "description": "Optional link to your own connection instructions, shown alongside the built-in steps.",

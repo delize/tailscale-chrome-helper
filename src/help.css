@@ -529,6 +529,25 @@ code {
   color: var(--text);
 }
 
+/* Reads as a button inside the prose, since it performs an action rather than
+   navigating to a page. */
+.inline-action {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.inline-action:hover {
+  background: var(--accent);
+  color: #14161b;
+}
+
 .runbook {
   margin: 14px 0 0;
   font-size: 13px;

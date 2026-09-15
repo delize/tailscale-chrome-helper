@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Guidance page preview</title>
+    <base href="../src/" />
+    <link rel="stylesheet" href="help.css" />
+  </head>
+  <body>
+    <!-- Development harness only, never packaged. Stubs the extension APIs so the guidance
+         page can be rendered in a plain browser tab with a sample tenant applied, which is
+         how the design gets compared against the reference capture. -->
+    <script>
+      const preview = new URLSearchParams(location.search);
+      const MANAGED = {
+        companyName: preview.get('company') || 'Legora',
+        watchedSuffixes: ['legora.ts.net'],
+        tailnetName: preview.get('tailnet') || 'Legora',
+        emailDomain: preview.get('domain') || 'legora.com',
+        supportUrl: 'https://example.com/help',
+      };
+      globalThis.chrome = {
+        storage: {
+          managed: { get: (_k, cb) => cb(preview.get('unmanaged') ? {} : MANAGED) },
+          sync: { get: (_k, cb) => cb({}) },
+          onChanged: { addListener: () => {} },
+        },
+        runtime: {
+          sendMessage: async () => preview.get('live') || null,
+        },
+      };
+    </script>
+    <script type="module">
+      // Reuse the real page markup so the preview cannot drift from what ships.
+      const html = await fetch('help.html').then((r) => r.text());
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      document.body.insertAdjacentHTML('afterbegin', doc.querySelector('main').outerHTML);
+      await import('./help.js');
+    </script>
+  </body>
+</html>

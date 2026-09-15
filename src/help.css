@@ -133,19 +133,14 @@ code {
 .glyph {
   width: 13px;
   height: 13px;
-  opacity: 0.5;
+  opacity: 0.55;
   flex: none;
+  color: var(--text);
 }
 
 .glyph-square {
   border: 1.5px solid var(--text);
   border-radius: 2px;
-}
-
-.glyph-cloud {
-  border-top: 1.5px solid var(--text);
-  border-radius: 40% 40% 0 0;
-  height: 8px;
 }
 
 .glyph-active {
@@ -173,7 +168,7 @@ code {
   height: 16.5px;
 }
 
-.dotgrid.faint { --dot: #6b7280; }
+.dotgrid.faint { --dot: #565b68; }
 .dotgrid.bright { --dot: #eef0f6; }
 
 .illustration-body {
@@ -205,6 +200,8 @@ code {
 .tiles figure {
   margin: 0;
 }
+
+.tile.dim { background: #23262d; }
 
 .tile {
   width: 44px;
@@ -286,18 +283,15 @@ code {
   .toggle, .knob { transition: none; }
 }
 
-/* Small pointer sitting over the toggle, showing what to click. */
+/* Pointer sitting just below the toggle, showing exactly what to click. */
 .cursor {
   position: absolute;
-  right: 6px;
-  top: 20px;
-  width: 0;
-  height: 0;
-  border-left: 7px solid #fff;
-  border-bottom: 5px solid transparent;
-  border-right: 3px solid transparent;
-  transform: rotate(18deg);
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+  right: 8px;
+  top: 17px;
+  width: 12px;
+  height: 16px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+  pointer-events: none;
 }
 
 .menu-row {

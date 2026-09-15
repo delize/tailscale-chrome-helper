@@ -1,0 +1,14 @@
+{
+  "name": "tailnet-connection-helper",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chrome extension that replaces the browser error page with connection guidance when a Tailscale tailnet app is unreachable.",
+  "type": "module",
+  "scripts": {
+    "check": "node tools/check.mjs",
+    "test": "node --test tests/config.test.mjs",
+    "verify": "npm run check && npm test",
+    "preview": "python3 -m http.server 8731 --bind 127.0.0.1",
+    "package": "node tools/package.mjs"
+  }
+}

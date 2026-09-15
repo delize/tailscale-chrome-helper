@@ -116,6 +116,16 @@ async function main() {
     const connected = name === 'appDown';
     el('menuToggle').classList.toggle('on', connected);
     el('menuState').textContent = connected ? 'Connected' : 'Not Connected';
+
+    // When Tailscale is already up, telling someone where to find its icon is noise.
+    // The problem is the app, and nothing in the illustration helps them.
+    el('illustration').hidden = connected;
+    el('caption').hidden = connected;
+
+    // Offering an installer to someone whose client is plainly running is worse than
+    // useless, so the download route is tied to the one state that can warrant it.
+    const canInstall = name === 'tailscaleOff' && attemptsReached;
+    setLink(el('download'), null, canInstall ? config.tailscaleDownloadUrl : '', 'Install Tailscale');
   }
 
   // Illustration identity, from config rather than a baked-in screenshot.
@@ -131,12 +141,6 @@ async function main() {
   }
 
   setLink(el('runbook'), el('runbookWrap'), config.connectHelpUrl);
-  paint(state);
-
-  const detailBits = [];
-  if (tokens.error) detailBits.push(tokens.error);
-  if (target) detailBits.push(target.href);
-  el('details').textContent = detailBits.length ? 'Details: ' + detailBits.join(' · ') : '';
 
   // Count visits per target in this tab so repeat failures surface the escalation route.
   // sessionStorage survives the round trip back to the app and returning here, because
@@ -149,10 +153,15 @@ async function main() {
   } catch {
     // sessionStorage can be unavailable. The hint is a nicety, not a need.
   }
-  if (attempts >= config.askItAfterAttempts) {
-    setLink(el('askIt'), null, config.supportUrl, config.supportLabel);
-    setLink(el('download'), null, config.tailscaleDownloadUrl, 'Install Tailscale');
-  }
+  const attemptsReached = attempts >= config.askItAfterAttempts;
+  if (attemptsReached) setLink(el('askIt'), null, config.supportUrl, config.supportLabel);
+
+  paint(state);
+
+  const detailBits = [];
+  if (tokens.error) detailBits.push(tokens.error);
+  if (target) detailBits.push(target.href);
+  el('details').textContent = detailBits.length ? 'Details: ' + detailBits.join(' · ') : '';
 
   const retry = el('retry');
   retry.addEventListener('click', () => {

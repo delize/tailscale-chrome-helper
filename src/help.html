@@ -19,10 +19,14 @@
 
       <!-- Illustration of the Tailscale client, rebuilt in markup so the account row can
            carry the configured tenant rather than a baked-in screenshot. -->
-      <section class="illustration" aria-label="Where to find Tailscale on your device">
+      <section class="illustration" id="illustration" aria-label="Where to find Tailscale on your device">
         <div class="menubar">
           <span class="glyph glyph-square"></span>
-          <span class="glyph glyph-cloud"></span>
+          <svg class="glyph" viewBox="0 0 16 12" aria-hidden="true">
+            <path d="M1 4.2a10 10 0 0 1 14 0M3.6 7a6.4 6.4 0 0 1 8.8 0" fill="none"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            <circle cx="8" cy="10" r="1.1" fill="currentColor" />
+          </svg>
           <span class="glyph glyph-active"><span class="dotgrid bright" aria-hidden="true"></span></span>
           <span class="clock">13:37</span>
         </div>
@@ -32,7 +36,7 @@
             <p class="icon-key-title">How the icon looks</p>
             <div class="tiles">
               <figure>
-                <div class="tile"><span class="dotgrid faint" aria-hidden="true"></span></div>
+                <div class="tile dim"><span class="dotgrid faint" aria-hidden="true"></span></div>
                 <figcaption>Disconnected</figcaption>
               </figure>
               <figure>
@@ -49,7 +53,11 @@
                 <p class="menu-sub" id="menuState">Not Connected</p>
               </div>
               <span class="toggle" id="menuToggle" aria-hidden="true"><span class="knob"></span></span>
-              <span class="cursor" aria-hidden="true"></span>
+              <svg class="cursor" viewBox="0 0 12 16" aria-hidden="true">
+                <path d="M1 1 L1 13 L4.2 10.2 L6.3 14.6 L8.4 13.6 L6.3 9.3 L10.5 9.3 Z"
+                      fill="#fff" stroke="rgba(0,0,0,.5)" stroke-width="0.9"
+                      stroke-linejoin="round" />
+              </svg>
             </div>
             <hr />
             <div class="menu-row">
@@ -69,7 +77,7 @@
         </div>
       </section>
 
-      <p class="caption">
+      <p class="caption" id="caption">
         Click the Tailscale icon, then flip the toggle on. On Windows the icon lives in the
         system tray, bottom right.
       </p>

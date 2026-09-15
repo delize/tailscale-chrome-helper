@@ -22,6 +22,8 @@ export const DEFAULTS = {
   controlUrl: 'http://connectivitycheck.gstatic.com/generate_204',
   portalUrl: 'http://neverssl.com/',
   logoDataUrl: '',
+  bannerDataUrl: '',
+  accentColor: '',
   probeTimeoutMs: 1500,
   targetTimeoutMs: 4000,
   pollIntervalMs: 2500,
@@ -157,11 +159,20 @@ function cleanProbeUrl(value) {
 // requiring ';' rejected the unparameterised form most SVG-to-data-URI tools emit.
 const MAX_LOGO_BYTES = 256 * 1024;
 
-function cleanImage(value) {
+function cleanImage(value, maxBytes = MAX_LOGO_BYTES) {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
-  if (trimmed.length > MAX_LOGO_BYTES) return null;
+  if (trimmed.length > maxBytes) return null;
   return /^data:image\/(png|jpeg|gif|webp|svg\+xml)[;,]/i.test(trimmed) ? trimmed : null;
+}
+
+// A strict hex pattern, not a general colour parser. The value is written into a CSS
+// custom property, so anything that could carry a semicolon or a url() would be injecting
+// CSS into a privileged page. Six or three digit hex cannot.
+function cleanColor(value) {
+  if (typeof value !== 'string') return null;
+  const hex = value.trim();
+  return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(hex) ? hex.toLowerCase() : null;
 }
 
 function cleanInt(value, min, max) {
@@ -211,6 +222,9 @@ export const CLEANERS = {
   controlUrl: cleanProbeUrl,
   portalUrl: cleanProbeUrl,
   logoDataUrl: cleanImage,
+  // A banner spans the card, so it gets a larger cap than the logo.
+  bannerDataUrl: (v) => cleanImage(v, 1024 * 1024),
+  accentColor: cleanColor,
   probeTimeoutMs: (v) => cleanInt(v, 200, 30000),
   targetTimeoutMs: (v) => cleanInt(v, 200, 30000),
   pollIntervalMs: (v) => cleanInt(v, 500, 60000),

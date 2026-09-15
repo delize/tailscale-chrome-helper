@@ -125,7 +125,9 @@ Policy changes apply without a browser restart.
 | `connectHelpUrl` | string | unset | Link to your own runbook. |
 | `controlUrl` | string | `http://connectivitycheck.gstatic.com/generate_204` | Captive portal probe. Must be **http**, see below. |
 | `portalUrl` | string | `http://neverssl.com/` | Plaintext page offered as a button to force a portal sign-in screen. |
-| `logoDataUrl` | string | unset | `data:image/...` only. Remote URLs are rejected. |
+| `logoDataUrl` | string | unset | `data:image/...` only, max 256 KB. Remote URLs are rejected. |
+| `bannerDataUrl` | string | unset | Banner across the top of the card. `data:image/...` only, max 1 MB. |
+| `accentColor` | string | unset | Button and link colour, 3 or 6 digit hex such as `#4a63d8`. |
 | `probeTimeoutMs` | integer | `1500` | Clamped to 200 to 30000. |
 | `targetTimeoutMs` | integer | `4000` | Clamped to 200 to 30000. |
 | `pollIntervalMs` | integer | `2500` | Clamped to 500 to 60000. |
@@ -145,6 +147,32 @@ typo never leaves the extension watching nothing silently.
 
 Leaving this unset watches all of `ts.net`, which is reasonable for a small deployment but
 means the page also appears for tailnets that are not yours.
+
+### Branding
+
+Three keys control appearance. All of them are optional and the page looks deliberate
+without any of them.
+
+```json
+{
+  "accentColor": "#4a63d8",
+  "logoDataUrl": "data:image/png;base64,iVBORw0KGgo...",
+  "bannerDataUrl": "data:image/png;base64,iVBORw0KGgo..."
+}
+```
+
+Images must be `data:` URIs rather than URLs. That is not an arbitrary restriction: this
+page is shown to someone whose network is already failing, so anything it had to fetch
+would be the thing most likely to be missing. Encode the file rather than linking it.
+
+```sh
+# macOS or Linux
+printf 'data:image/png;base64,%s' "$(base64 -i logo.png | tr -d '\n')"
+```
+
+`accentColor` accepts plain hex only, not `rgb()` or named colours. The page is dark, so
+pick something that reads against a dark background. The rest of the palette is fixed,
+which keeps a mis-set colour from producing an unreadable page.
 
 ### Identity providers and SSO
 

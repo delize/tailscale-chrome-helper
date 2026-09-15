@@ -86,6 +86,46 @@ test('logo data URIs are accepted with either delimiter and capped in size', asy
   assert.equal(config.logoDataUrl, '', 'an oversized logo must be rejected');
 });
 
+test('accentColor accepts only plain hex, because it lands in a CSS property', async () => {
+  for (const good of ['#4a63d8', '#ABC', '#abcdef']) {
+    const { config } = await resolve({ accentColor: good });
+    assert.equal(config.accentColor, good.toLowerCase(), `${good} must be accepted`);
+  }
+  // Anything that could close a declaration and start another would be CSS injection on
+  // a privileged page, so the pattern is deliberately narrower than CSS colour syntax.
+  const bad = [
+    'red',
+    'rgb(1,2,3)',
+    '#4a63d8; background: url(https://evil.example/x)',
+    'url(javascript:alert(1))',
+    '#12345',
+    'var(--x)',
+    '#4a63d8 !important',
+    'expression(alert(1))',
+  ];
+  for (const v of bad) {
+    const { config } = await resolve({ accentColor: v });
+    assert.equal(config.accentColor, DEFAULTS.accentColor, `${v} must be rejected`);
+  }
+});
+
+test('the banner is data-only and capped larger than the logo', async () => {
+  const ok = 'data:image/png;base64,AAA';
+  const { config } = await resolve({ bannerDataUrl: ok });
+  assert.equal(config.bannerDataUrl, ok);
+
+  const remote = await resolve({ bannerDataUrl: 'https://cdn.example/banner.png' });
+  assert.equal(remote.config.bannerDataUrl, '', 'a remote banner must be rejected');
+
+  // A banner gets a bigger allowance than a logo, but still a finite one.
+  const mid = 'data:image/png;base64,' + 'A'.repeat(400 * 1024);
+  assert.notEqual((await resolve({ bannerDataUrl: mid })).config.bannerDataUrl, '');
+  assert.equal((await resolve({ logoDataUrl: mid })).config.logoDataUrl, '', 'logo cap is tighter');
+
+  const huge = 'data:image/png;base64,' + 'A'.repeat(2 * 1024 * 1024);
+  assert.equal((await resolve({ bannerDataUrl: huge })).config.bannerDataUrl, '');
+});
+
 test('suppressMs cannot be set to zero, which would disable the Back guard', async () => {
   const { config } = await resolve({ suppressMs: 0 });
   assert.equal(config.suppressMs, 1);

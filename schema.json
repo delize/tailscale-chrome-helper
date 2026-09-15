@@ -77,6 +77,16 @@
       "description": "Optional logo as a data:image/ URI. Remote URLs are rejected so the page never makes an outbound request.",
       "type": "string"
     },
+    "bannerDataUrl": {
+      "title": "Banner image",
+      "description": "Optional banner shown across the top of the page, as a data:image/ URI. Remote URLs are rejected so the page never makes an outbound request, which matters because it is shown to users whose network is already broken. Maximum 1 MB.",
+      "type": "string"
+    },
+    "accentColor": {
+      "title": "Accent colour",
+      "description": "Colour of the primary button and links, as a hex value such as #4a63d8. Only 3 or 6 digit hex is accepted. Pick something readable against a dark background, since the page is dark by design.",
+      "type": "string"
+    },
     "probeTimeoutMs": {
       "title": "Probe timeout (ms)",
       "description": "How long to wait for the local Tailscale check before calling it down. Default 1500.",

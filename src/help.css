@@ -79,11 +79,28 @@ body {
   .pill[data-state="wait"] .pill-dot { animation: none; }
 }
 
+/* Full bleed to the card edges, so an admin's artwork does not sit in a padded box. */
+.banner {
+  display: block;
+  width: calc(100% + 56px);
+  margin: -28px -28px 4px;
+  max-height: 120px;
+  object-fit: cover;
+  border-radius: 16px 16px 0 0;
+}
+
 .logo {
   display: block;
   max-height: 28px;
   width: auto;
   margin: 20px 0 0;
+}
+
+@media (max-width: 460px) {
+  .banner {
+    width: calc(100% + 40px);
+    margin: -20px -20px 4px;
+  }
 }
 
 h1 {

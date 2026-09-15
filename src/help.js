@@ -164,6 +164,19 @@ async function main() {
   el('menuTailnet').textContent = tokens.tailnetName;
   el('menuManaged').textContent = company ? `Managed by ${company}` : 'Managed by your organisation';
 
+  // Accent is applied as a custom property so one value drives the button, links and
+  // focus ring without any of them being restyled individually.
+  if (config.accentColor) {
+    document.documentElement.style.setProperty('--accent', config.accentColor);
+  }
+
+  if (config.bannerDataUrl) {
+    const banner = el('banner');
+    banner.src = config.bannerDataUrl;
+    banner.alt = '';
+    banner.hidden = false;
+  }
+
   if (config.logoDataUrl) {
     const logo = el('logo');
     logo.src = config.logoDataUrl;

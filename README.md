@@ -148,6 +148,23 @@ there, and is reported on the options page instead.
 administrator-facing schema, or if the permission set changes. Both are drift that would
 otherwise be noticed only after a release.
 
+## Rebranding by forking
+
+Everything a user reads is configurable at runtime: company name, logo, banner, accent
+colour, and every line of copy. The one thing policy cannot reach is the extension's own
+icon, the one shown on `chrome://extensions` and in the Web Store. Those live in the
+signed package and no API changes them.
+
+If that matters to you, fork and replace `icons/`. Two things follow from doing so:
+
+**Your build gets a different extension ID.** Policy is keyed by ID, so your configuration
+must target yours, not this one. For an unpacked build the ID comes from the directory
+path; for a Web Store listing, from the store. Check `chrome://extensions` and use that
+value wherever the examples say `EXTENSION_ID_HERE`.
+
+**The placeholder icons are not a design.** They are a dot grid that resembles Tailscale's
+own mark, which is the wrong thing to ship under your name. Replace them.
+
 ## Policy examples
 
 Ready-to-use blobs for each deployment path live in [examples/](examples/): the flat JSON

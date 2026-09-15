@@ -1,0 +1,456 @@
+/* Dark, self-contained. No webfonts, no remote assets, so the page renders correctly on
+   the exact thing it is there to explain: a device with no working network. */
+
+:root {
+  --bg: #0e0f13;
+  --card: #15171c;
+  --inset: #1b1e24;
+  --panel: #2a2d35;
+  --panel-hi: #33363f;
+  --line: #262a32;
+  --text: #f2f4f8;
+  --muted: #9aa1b1;
+  --faint: #6b7280;
+  --accent: #8b93f0;
+  --bad: #f2555a;
+  --warn: #e8b552;
+  --ok: #4ec98a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: calc(32px + env(safe-area-inset-top, 0px)) 16px
+    calc(32px + env(safe-area-inset-bottom, 0px));
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  display: flex;
+  justify-content: center;
+}
+
+.card {
+  width: 100%;
+  max-width: 620px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 28px;
+}
+
+/* Status chip */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--inset);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--faint);
+  flex: none;
+}
+
+.pill[data-state="bad"] .pill-dot { background: var(--bad); }
+.pill[data-state="warn"] .pill-dot { background: var(--warn); }
+.pill[data-state="ok"] .pill-dot { background: var(--ok); }
+.pill[data-state="wait"] .pill-dot {
+  background: var(--warn);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill[data-state="wait"] .pill-dot { animation: none; }
+}
+
+.logo {
+  display: block;
+  max-height: 28px;
+  width: auto;
+  margin: 20px 0 0;
+}
+
+h1 {
+  margin: 18px 0 10px;
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.lede {
+  margin: 0 0 22px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  background: var(--inset);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 2px 6px;
+  color: var(--text);
+  word-break: break-all;
+}
+
+/* Illustration */
+.illustration {
+  background: var(--inset);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.menubar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.glyph {
+  width: 13px;
+  height: 13px;
+  opacity: 0.5;
+  flex: none;
+}
+
+.glyph-square {
+  border: 1.5px solid var(--text);
+  border-radius: 2px;
+}
+
+.glyph-cloud {
+  border-top: 1.5px solid var(--text);
+  border-radius: 40% 40% 0 0;
+  height: 8px;
+}
+
+.glyph-active {
+  opacity: 1;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  display: grid;
+  place-items: center;
+}
+
+.clock {
+  font-size: 11px;
+  color: var(--text);
+  opacity: 0.8;
+}
+
+/* The 3x3 mark, drawn rather than shipped as an image so it stays crisp at any zoom. */
+.dotgrid {
+  --dot: var(--text);
+  background-image: radial-gradient(var(--dot) 45%, transparent 47%);
+  background-size: 5.5px 5.5px;
+  width: 16.5px;
+  height: 16.5px;
+}
+
+.dotgrid.faint { --dot: #6b7280; }
+.dotgrid.bright { --dot: #eef0f6; }
+
+.illustration-body {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.icon-key {
+  flex: 1 1 170px;
+  min-width: 150px;
+  text-align: center;
+}
+
+.icon-key-title {
+  margin: 4px 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tiles {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+}
+
+.tiles figure {
+  margin: 0;
+}
+
+.tile {
+  width: 44px;
+  height: 44px;
+  border-radius: 9px;
+  background: var(--panel);
+  display: grid;
+  place-items: center;
+  margin: 0 auto 6px;
+}
+
+.tiles figcaption {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Mock client menu */
+.menu {
+  flex: 1 1 200px;
+  min-width: 190px;
+  background: var(--panel-hi);
+  border-radius: 9px;
+  padding: 10px 0 6px;
+}
+
+.menu hr {
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  margin: 6px 10px;
+}
+
+.menu-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 2px;
+}
+
+.menu-head > div { flex: 1; }
+
+.menu-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.menu-sub {
+  margin: 1px 0 0;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.toggle {
+  width: 34px;
+  height: 19px;
+  border-radius: 999px;
+  background: #55596a;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  flex: none;
+  transition: background 160ms ease;
+}
+
+.knob {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 160ms ease;
+}
+
+.toggle.on { background: #4a63d8; }
+.toggle.on .knob { transform: translateX(15px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .toggle, .knob { transition: none; }
+}
+
+/* Small pointer sitting over the toggle, showing what to click. */
+.cursor {
+  position: absolute;
+  right: 6px;
+  top: 20px;
+  width: 0;
+  height: 0;
+  border-left: 7px solid #fff;
+  border-bottom: 5px solid transparent;
+  border-right: 3px solid transparent;
+  transform: rotate(18deg);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+}
+
+.menu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+.menu-row.simple {
+  justify-content: space-between;
+  color: var(--text);
+}
+
+.shortcut {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #6366f1;
+  flex: none;
+}
+
+.menu-account {
+  flex: 1;
+  min-width: 0;
+}
+
+.menu-email {
+  margin: 0;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-tailnet {
+  margin: 0;
+  font-size: 9px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  width: 5px;
+  height: 5px;
+  border-top: 1.5px solid var(--muted);
+  border-right: 1.5px solid var(--muted);
+  transform: rotate(45deg);
+  flex: none;
+}
+
+.menu-managed {
+  margin: 0;
+  padding: 2px 10px 0;
+  font-size: 9px;
+  color: var(--faint);
+}
+
+.caption {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.steps {
+  margin: 20px 0 0;
+  padding-left: 20px;
+  color: #c6ccd9;
+  font-size: 13px;
+}
+
+.steps li {
+  margin-bottom: 10px;
+}
+
+.steps strong {
+  color: var(--text);
+}
+
+.runbook {
+  margin: 14px 0 0;
+  font-size: 13px;
+}
+
+a {
+  color: var(--accent);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.primary {
+  background: var(--accent);
+  color: #14161b;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.primary:hover { filter: brightness(1.08); }
+
+.primary:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.secondary {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--inset);
+  color: var(--text);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.secondary:hover { border-color: #3a3f4a; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.details {
+  margin: 22px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--faint);
+  word-break: break-all;
+}
+
+@media (max-width: 460px) {
+  .card { padding: 20px; }
+  h1 { font-size: 19px; }
+  .illustration-body { flex-direction: column; }
+  .icon-key, .menu { width: 100%; }
+}

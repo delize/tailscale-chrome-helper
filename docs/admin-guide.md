@@ -37,9 +37,15 @@ the real block is an unsigned-in hotel network.
   "watchedSuffixes": ["acme.ts.net"],
   "tailnetName": "Acme",
   "emailDomain": "acme.com",
-  "supportUrl": "https://help.acme.com/tailscale"
+  "supportUrl": "https://help.acme.com/tailscale",
+  "showInstallLink": false
 }
 ```
+
+`showInstallLink` is false here because a managed fleet already has Tailscale deployed.
+Telling those users to go and install it sends them somewhere they cannot act, and the
+support link is the useful route instead. Leave it true only if people install the client
+themselves.
 
 Use this flat shape. Some vendors document a wrapped form (`{"key": {"Value": "x"}}`)
 carried over from the Windows registry. This extension expects the flat form, and the
@@ -69,7 +75,8 @@ Policy changes apply without a browser restart.
 | `emailDomain` | string | unset | Renders the example account as `you@acme.com`. Illustrative only. |
 | `supportUrl` | string | unset | Escalation link. `https`, `mailto` or `slack` only. Hidden when unset. |
 | `supportLabel` | string | `Ask IT` | Text on the escalation button. |
-| `tailscaleDownloadUrl` | string | Tailscale's download page | Offered only when Tailscale is not running. |
+| `showInstallLink` | boolean | `true` | Set false where Tailscale is deployed by MDM, so users are not told to install it themselves. |
+| `tailscaleDownloadUrl` | string | Tailscale's download page | Offered only when Tailscale is not running, and only if `showInstallLink` is true. |
 | `connectHelpUrl` | string | unset | Link to your own runbook. |
 | `controlUrl` | string | `http://connectivitycheck.gstatic.com/generate_204` | Captive portal probe. Must be **http**, see below. |
 | `portalUrl` | string | `http://neverssl.com/` | Plaintext page offered as a button to force a portal sign-in screen. |

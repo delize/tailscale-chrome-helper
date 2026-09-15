@@ -139,7 +139,7 @@ async function main() {
 
     // Offering an installer to someone whose client is plainly running is worse than
     // useless, so the download route is tied to the one state that can warrant it.
-    const canInstall = name === 'tailscaleOff' && attemptsReached;
+    const canInstall = config.showInstallLink && name === 'tailscaleOff' && attemptsReached;
     setLink(el('download'), null, canInstall ? config.tailscaleDownloadUrl : '', 'Install Tailscale');
 
     // Loading any plaintext page is what forces a captive portal to show its sign-in
@@ -190,9 +190,22 @@ async function main() {
   el('details').textContent = detailBits.length ? 'Details: ' + detailBits.join(' · ') : '';
 
   const retry = el('retry');
-  retry.addEventListener('click', () => {
-    if (target) location.replace(target.href);
-    else location.reload();
+  retry.addEventListener('click', async () => {
+    if (!target) {
+      location.reload();
+      return;
+    }
+    // Drop the worker's re-show guard for this tab and URL first. Without this a retry
+    // that fails again is treated as a Back-button bounce and swallowed, leaving the user
+    // stranded on Chrome's error page. Awaited so the worker has acted before we navigate,
+    // and failure is not fatal: the worst case is the old behaviour.
+    retry.disabled = true;
+    try {
+      await chrome.runtime.sendMessage({ type: 'retrying', url: target.href });
+    } catch {
+      // Worker asleep or unreachable. Navigate anyway.
+    }
+    location.replace(target.href);
   });
   if (!target) retry.disabled = true;
 

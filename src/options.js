@@ -3,6 +3,8 @@
 
 import { loadConfig, invalidateConfig } from './config.js';
 
+const BOOL_FIELDS = ['enabled', 'showInstallLink'];
+
 const TEXT_FIELDS = [
   'companyName',
   'tailnetName',
@@ -28,8 +30,10 @@ function lock(input, isManaged) {
 async function render() {
   const { config, managedKeys, rejected } = await loadConfig({ force: true });
 
-  el('enabled').checked = config.enabled;
-  lock(el('enabled'), managedKeys.has('enabled'));
+  for (const key of BOOL_FIELDS) {
+    el(key).checked = config[key];
+    lock(el(key), managedKeys.has(key));
+  }
 
   for (const key of TEXT_FIELDS) {
     el(key).value = config[key] || '';
@@ -60,7 +64,9 @@ el('form').addEventListener('submit', async (event) => {
   const patch = {};
   const remove = [];
 
-  if (!managedKeys.has('enabled')) patch.enabled = el('enabled').checked;
+  for (const key of BOOL_FIELDS) {
+    if (!managedKeys.has(key)) patch[key] = el(key).checked;
+  }
 
   for (const key of TEXT_FIELDS) {
     if (managedKeys.has(key)) continue;

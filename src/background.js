@@ -6,6 +6,7 @@
 // administrator policy instead of being baked into the manifest.
 
 import { loadConfig, watchConfig, matchesWatched } from './config.js';
+import { createSuppressor } from './suppression.js';
 
 // Tailscale's Quad100 magic IP. It answers HTTP only while the client is connected, so
 // it doubles as a connectivity probe.
@@ -27,30 +28,9 @@ const NETWORK_ERRORS = new Set([
   'net::ERR_TIMED_OUT',
 ]);
 
-// After showing the guidance page for a tab and URL, refuse to show it again briefly.
-// Pressing Back re-runs the same failing navigation instantly, and without this the tab
-// bounces straight forward again. In memory on purpose: a worker restart forgets it,
-// which at worst shows one extra guidance page and never misses one.
-const recentlyShown = new Map();
+// See src/suppression.js for why this exists and why it is deliberately in memory.
+const suppressor = createSuppressor();
 
-function wasJustShown(tabId, url, suppressMs) {
-  const key = tabId + '|' + url;
-  const seenAt = recentlyShown.get(key);
-  const now = Date.now();
-  if (seenAt && now - seenAt < suppressMs) return true;
-  recentlyShown.set(key, now);
-  // Keep the map from growing without bound across a long browser session.
-  if (recentlyShown.size > 100) {
-    for (const [k, t] of recentlyShown) {
-      if (now - t > suppressMs) recentlyShown.delete(k);
-    }
-  }
-  return false;
-}
-
-// The timeout has to cover the body read as well as the headers. Clearing the timer once
-// headers arrive left a responder free to stall mid-body forever, which wedged classify()
-// and, through it, the help page's poll loop.
 async function fetchWithTimeout(url, timeoutMs, options = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -156,7 +136,7 @@ chrome.webNavigation.onErrorOccurred.addListener(async (details) => {
   const { config } = await loadConfig();
   if (!config.enabled) return;
   if (!matchesWatched(details.url, config.watchedSuffixes)) return;
-  if (wasJustShown(details.tabId, details.url, config.suppressMs)) return;
+  if (suppressor.shouldSuppress(details.tabId, details.url, config.suppressMs)) return;
 
   const state = await classify(config);
   await showHelpPage(details.tabId, details.url, { error: details.error, state });
@@ -172,6 +152,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     loadConfig()
       .then(({ config }) => tailscaleIsUp(config))
       .then(sendResponse, () => sendResponse(false));
+    return true;
+  }
+  if (message.type === 'retrying') {
+    // Sent by the guidance page immediately before it navigates back to the app, so a
+    // retry that fails again returns to guidance instead of Chrome's error page.
+    if (_sender.tab && typeof message.url === 'string') {
+      suppressor.clear(_sender.tab.id, message.url);
+    }
+    sendResponse(true);
     return true;
   }
   if (message.type === 'classify') {

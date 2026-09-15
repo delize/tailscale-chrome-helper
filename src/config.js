@@ -45,7 +45,7 @@ const BRANDED = {
     headline: 'Sign in to this network first',
     lede: '{host} could not be reached, and something on this network is intercepting traffic. That usually means a wifi sign-in page is waiting.',
     steps: [
-      'Open a new tab and load any ordinary website. The network sign-in page should appear.',
+      'Use the button below, or open any ordinary website in a new tab. Either one makes the network show its sign-in page.',
       'Complete the sign-in, including any terms you have to accept.',
       'Come back to this tab. Once the network lets traffic through, Tailscale reconnects and you are taken to the app automatically.',
     ],

@@ -17,10 +17,13 @@ data:
    rather than something else answering, because a captive portal can reply to any
    address.
 2. **A captive portal check** to a public no-content endpoint, by default
-   `https://www.gstatic.com/generate_204`. It is sent `no-cors` with no identifiers, no
-   cookies of interest and no reference to the site the user was visiting. It exists only
-   to tell "the VPN is off" apart from "this network wants a sign-in". An administrator
-   can point this at their own endpoint.
+   `http://connectivitycheck.gstatic.com/generate_204`. It carries no identifiers and no
+   reference to the site the user was visiting. It exists only to tell "the VPN is off"
+   apart from "this network wants a sign-in", and it is plaintext because a captive portal
+   cannot answer an encrypted one. An administrator can point it at their own endpoint.
+
+   While a guidance page is open it repeats on the poll interval, 2.5 seconds by default,
+   for as long as that page stays open. It stops when the page is closed.
 
 The address of the site a user failed to reach is handled entirely inside the browser. It
 is passed to the extension's own guidance page so it can offer a retry link, and it is
@@ -37,10 +40,18 @@ Configuration only, in Chrome's extension storage:
 
 ## Permissions
 
-`webNavigation` detects failed navigations. `storage` reads the configuration. The single
-host permission for `http://100.100.100.100/` allows the local Tailscale check. The
-extension requests no access to tailnet domains or any other website, so it cannot read
-the pages a user visits.
+`webNavigation` detects failed navigations. Chrome describes this permission to users as
+"Read your browsing history", and that description is accurate: the extension is told the
+address of every page you navigate to. It acts on none of them except navigations that
+fail against a domain your administrator listed, and it stores and transmits none of them,
+ever.
+
+What it cannot do is read the pages themselves. It holds no host permissions for any
+website, so it cannot see page content, cookies, form data or anything you type.
+
+`storage` reads the configuration. The two host permissions,
+`http://100.100.100.100/` and `http://connectivitycheck.gstatic.com/`, cover the local
+Tailscale check and the captive portal probe respectively.
 
 ## Contact
 

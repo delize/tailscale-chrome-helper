@@ -71,7 +71,8 @@ Policy changes apply without a browser restart.
 | `supportLabel` | string | `Ask IT` | Text on the escalation button. |
 | `tailscaleDownloadUrl` | string | Tailscale's download page | Offered only when Tailscale is not running. |
 | `connectHelpUrl` | string | unset | Link to your own runbook. |
-| `controlUrl` | string | `https://www.gstatic.com/generate_204` | Used to detect captive portals. Override if your network blocks it. |
+| `controlUrl` | string | `http://connectivitycheck.gstatic.com/generate_204` | Captive portal probe. Must be **http**, see below. |
+| `portalUrl` | string | `http://neverssl.com/` | Plaintext page offered as a button to force a portal sign-in screen. |
 | `logoDataUrl` | string | unset | `data:image/...` only. Remote URLs are rejected. |
 | `probeTimeoutMs` | integer | `1500` | Clamped to 200 to 30000. |
 | `targetTimeoutMs` | integer | `4000` | Clamped to 200 to 30000. |
@@ -92,6 +93,42 @@ typo never leaves the extension watching nothing silently.
 
 Leaving this unset watches all of `ts.net`, which is reasonable for a small deployment but
 means the page also appears for tailnets that are not yours.
+
+### Identity providers and SSO
+
+A tailnet app usually answers by redirecting to an identity provider on a different
+domain, such as Okta, Entra or Ping. That is expected and needs no configuration. This
+extension only ever navigates back to the original `ts.net` address the user asked for,
+and where the app forwards them afterwards is the browser's business. A redirect to your
+IdP is treated as proof the app is reachable, not as a failure.
+
+One case does need a setting. If your identity provider is itself only reachable over the
+tailnet, add its hostname to `watchedSuffixes` alongside your tailnet:
+
+```json
+{ "watchedSuffixes": ["acme.ts.net", "login.internal.acme.com"] }
+```
+
+Without that, a failed navigation to the IdP falls outside the watch list and the user
+gets Chrome's plain error page. Do not add a public IdP such as `okta.com` this way. It is
+reachable without Tailscale, so a failure there is a real outage and the guidance would be
+wrong.
+
+### Captive portals, and why the probe is plaintext
+
+`controlUrl` must be an `http://` URL. This is not an oversight. A captive portal cannot
+intercept an `https://` request without presenting a certificate the browser rejects, so
+an https probe can only ever fail, and a failure is indistinguishable from being offline.
+Over plaintext the portal answers, and that answer is the signal.
+
+The default endpoint returns `204 No Content`. Anything else, a redirect or a login page
+served with a 200, is read as interception. If you override it, use a plaintext endpoint
+that returns 204 and nothing else. Pointing it at a URL that redirects, such as an
+internal health check behind SSO, will report every user as being behind a portal.
+
+`portalUrl` is the page offered to the user as a button when a portal is detected. Loading
+any plaintext page is what makes the sign-in screen appear, which is what
+`http://neverssl.com/` exists for. Point it at your own plaintext page if you prefer.
 
 ### Rewriting the copy
 
@@ -136,12 +173,23 @@ tailnet domains at all.
 
 | Permission | Reason |
 |---|---|
-| `webNavigation` | Detects the failed navigation. This permission alone delivers navigation events for all hosts, which is what lets your domain list live in policy instead of in the extension's manifest. |
+| `webNavigation` | Detects the failed navigation. This permission alone delivers navigation events for all hosts, which is what lets your domain list live in policy instead of in the extension's manifest. Chrome shows it to users as "Read your browsing history". |
 | `storage` | Reads the configuration on this page. |
 | `http://100.100.100.100/` | Tailscale's local magic IP. Read to confirm the client is actually running. |
+| `http://connectivitycheck.gstatic.com/` | The captive portal probe. Plaintext by necessity, see above. Carries no user data. |
 
 There are no host permissions for `ts.net` or any tenant domain. The extension cannot read
 the content of your internal apps, because it never has access to them.
+
+## Requirements
+
+Chrome 106 or later. The extension filters prerendered navigations using a field added in
+that version.
+
+Tailscale 1.64 or later on the device, because the `appDown` state depends on the client
+serving its web interface at `100.100.100.100`. On older clients that check always fails,
+so a user whose app is genuinely down is told Tailscale is not connected. Detection of the
+other three states is unaffected.
 
 ## Privacy
 

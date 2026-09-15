@@ -13,7 +13,9 @@ globalThis.chrome = {
     sync: { get: (_k, cb) => cb(SYNC) },
     onChanged: { addListener: () => {} },
   },
-  runtime: {},
+  runtime: { onMessage: { addListener: () => {} }, getURL: (p) => 'chrome-extension://test/' + p },
+  webNavigation: { onErrorOccurred: { addListener: () => {} } },
+  tabs: { get: async () => ({}), update: async () => {} },
 };
 
 const { loadConfig, invalidateConfig, matchesWatched, applyTokens, defaultStrings, DEFAULTS, STATES } =
@@ -234,4 +236,32 @@ test('tokens substitute known keys and leave unknown ones alone', () => {
   assert.equal(applyTokens('{company} network', { company: 'Acme' }), 'Acme network');
   assert.equal(applyTokens('{nope} here', { company: 'Acme' }), '{nope} here');
   assert.equal(applyTokens(undefined, {}), '');
+});
+
+test('suggestOnTailnet refuses to guess when a guess would be a guess', async () => {
+  const { suggestOnTailnet } = await import('../src/background.js');
+  const mine = ['acme.ts.net'];
+
+  assert.equal(suggestOnTailnet('https://traefik.other.ts.net/', mine), 'traefik.acme.ts.net');
+  assert.equal(suggestOnTailnet('https://a.b.other.ts.net/', mine), 'a.b.acme.ts.net');
+
+  // Already ours, so there is nothing to correct.
+  assert.equal(suggestOnTailnet('https://traefik.acme.ts.net/', mine), null);
+  // A bare tailnet has no device label to carry over.
+  assert.equal(suggestOnTailnet('https://other.ts.net/', mine), null);
+  // Not a tailnet at all.
+  assert.equal(suggestOnTailnet('https://example.com/', mine), null);
+  assert.equal(suggestOnTailnet('not a url', mine), null);
+  // Two tailnets configured: which one did they mean? Do not pick.
+  assert.equal(suggestOnTailnet('https://traefik.other.ts.net/', ['a.ts.net', 'b.ts.net']), null);
+  // The broad default watches everything, so nothing is foreign.
+  assert.equal(suggestOnTailnet('https://traefik.other.ts.net/', ['ts.net']), null);
+});
+
+test('the target allowlist stays narrow even after widening for wrongTailnet', () => {
+  // Any tailnet host is accepted, so the wrongTailnet state can name the address it is
+  // about. Everything else is still refused.
+  assert.ok(matchesWatched('https://dashboard.contoso.ts.net/', ['ts.net']));
+  assert.ok(!matchesWatched('https://evil.example/', ['ts.net']));
+  assert.ok(!matchesWatched('https://ts.net.evil.example/', ['ts.net']));
 });

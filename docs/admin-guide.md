@@ -18,6 +18,8 @@ It distinguishes four situations rather than assuming the first one:
 | `captivePortal` | Something is intercepting traffic, so a wifi sign-in is pending. |
 | `offline` | Nothing is reachable at all. |
 | `appDown` | Tailscale is connected but the app itself did not answer. |
+| `nameNotFound` | Tailscale is connected, but the name does not resolve on your tailnet. |
+| `wrongTailnet` | The address belongs to a different tailnet. Only reachable with `suggestCorrectTailnet` on. |
 
 Telling these apart matters. Advising someone to flip the Tailscale toggle is wrong when
 the real block is an unsigned-in hotel network.
@@ -122,6 +124,7 @@ Policy changes apply without a browser restart.
 | `supportLabel` | string | `Ask IT` | Text on the escalation button. |
 | `checkingLabel` | string | `Checking your connection` | Status shown while the first connection check is still running. |
 | `showInstallLink` | boolean | `true` | Set false where Tailscale is deployed by MDM, so users are not told to install it themselves. |
+| `suggestCorrectTailnet` | boolean | `false` | Offer the corrected address when a user lands on a different tailnet. See below. |
 | `tailscaleDownloadUrl` | string | Tailscale's download page | Offered only when Tailscale is not running, and only if `showInstallLink` is true. |
 | `openAppUrl` | string | unset | Link offered when the icon cannot be found. Accepts `tailscale:` or `https:`. Off by default, see below. |
 | `openAppLabel` | string | `Open Tailscale` | Text of that link. |
@@ -219,6 +222,30 @@ right shape. If you do set a `tailscale:` URL, test the whole path on a real dev
 Worth knowing either way: Chrome's permission prompt names the requesting origin, and for
 an extension that is the raw extension ID rather than a friendly name. Users find that
 alarming without warning.
+
+### Suggesting the right tailnet
+
+`suggestCorrectTailnet` is **off by default**, and deliberately so. Every other part of
+this extension acts only on the domains you listed in `watchedSuffixes`. This one has to
+look at tailnet hosts you did not list, because that is the whole point: spotting that
+someone typed a host on somebody else's tailnet.
+
+When it is on, a failed navigation to any `*.ts.net` host that is not yours shows the
+corrected address and nothing else.
+
+The wording is careful not to claim the address is wrong. Per Tailscale's sharing
+documentation a device shared with you keeps the name of the tailnet it came from, and is
+reachable across tailnet boundaries while you are connected to your own. So a
+foreign-looking hostname is frequently legitimate, and the page offers an alternative
+rather than an accusation.
+
+It refuses to guess rather than guessing badly. No suggestion is offered when the host is
+already on your tailnet, when the host is a bare tailnet name with no device label, when
+you have configured more than one tailnet, or when `watchedSuffixes` is the broad `ts.net`.
+
+The user can always continue to the address they typed. That choice is remembered for the
+rest of the browser session, so the extension stops interposing for that host. A
+suggestion you cannot decline is an interception.
 
 ### Captive portals, and why the probe is plaintext
 

@@ -93,8 +93,42 @@ async function classifyInternet(config) {
   }
 }
 
-export async function classify(config) {
-  if (await tailscaleIsUp(config)) return 'appDown';
+// Chrome's own error says which kind of failure this was, and once Tailscale is up the
+// distinction matters: a name that does not resolve is a different problem from an app
+// that does not answer, and the fixes have nothing in common.
+const NAME_ERRORS = new Set([
+  'net::ERR_NAME_NOT_RESOLVED',
+  'net::ERR_NAME_RESOLUTION_FAILED',
+  'net::ERR_DNS_TIMED_OUT',
+]);
+
+// A tailnet host that is not ours. Carry the device label over to the configured tailnet
+// and offer that instead. Returns null rather than guessing whenever the guess would be a
+// guess: already ours, no device label, more than one tailnet, or a broad ts.net config.
+export function suggestOnTailnet(rawUrl, suffixes) {
+  let host;
+  try {
+    host = new URL(rawUrl).hostname.toLowerCase().replace(/\.$/, '');
+  } catch {
+    return null;
+  }
+  if (!host.endsWith('.ts.net')) return null;
+  if (suffixes.some((suffix) => host === suffix || host.endsWith('.' + suffix))) return null;
+  const tailnets = suffixes.filter((x) => x.endsWith('.ts.net') && x.split('.').length === 3);
+  if (tailnets.length !== 1) return null;
+  const labels = host.slice(0, -'.ts.net'.length).split('.');
+  if (labels.length < 2) return null;
+  return labels.slice(0, -1).join('.') + '.' + tailnets[0];
+}
+
+// Hosts the user chose to continue to anyway. In memory, so it lasts the session and no
+// longer: a dismissal means "I meant this, now", not a permanent preference.
+const dismissed = new Set();
+
+export async function classify(config, error) {
+  if (await tailscaleIsUp(config)) {
+    return NAME_ERRORS.has(error) ? 'nameNotFound' : 'appDown';
+  }
   const internet = await classifyInternet(config);
   if (internet === 'captive') return 'captivePortal';
   if (internet === 'offline') return 'offline';
@@ -135,8 +169,35 @@ chrome.webNavigation.onErrorOccurred.addListener(async (details) => {
 
   const { config } = await loadConfig();
   if (!config.enabled) return;
-  if (!matchesWatched(details.url, config.watchedSuffixes)) return;
+
+  const watched = matchesWatched(details.url, config.watchedSuffixes);
+  let suggestion = null;
+  if (!watched) {
+    // The only case where this extension acts outside the configured domains, and only to
+    // offer a correction. Opt-in, and silent for anyone who has not turned it on.
+    if (!config.suggestCorrectTailnet) return;
+    suggestion = suggestOnTailnet(details.url, config.watchedSuffixes);
+    if (!suggestion) return;
+    try {
+      if (dismissed.has(new URL(details.url).hostname.toLowerCase())) return;
+    } catch {
+      return;
+    }
+  }
+
   if (suppressor.shouldSuppress(details.tabId, details.url, config.suppressMs)) return;
+
+  if (suggestion) {
+    // No probing. The correction is worth offering either way, and the copy does not
+    // claim the address is unreachable: a shared device keeps its original tailnet name
+    // and is reachable across tailnets once Tailscale is connected.
+    await showHelpPage(details.tabId, details.url, {
+      error: details.error,
+      state: 'wrongTailnet',
+      suggestion,
+    });
+    return;
+  }
 
   // Deliberately not classified here. The Quad100 probe is blackholed rather than refused
   // when Tailscale is off, so it burns its full timeout, and the portal probe adds another
@@ -167,9 +228,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     sendResponse(true);
     return true;
   }
+  if (message.type === 'dismiss-suggestion') {
+    // The user said they meant that address. Stop interposing for it this session.
+    if (typeof message.host === 'string') dismissed.add(message.host.toLowerCase());
+    sendResponse(true);
+    return true;
+  }
   if (message.type === 'classify') {
     loadConfig()
-      .then(({ config }) => classify(config))
+      .then(({ config }) => classify(config, message.error))
       .then(sendResponse, () => sendResponse(null));
     return true;
   }

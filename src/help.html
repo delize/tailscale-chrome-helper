@@ -125,12 +125,15 @@
         <div class="actions">
           <button type="button" class="primary" id="retry">Try again now</button>
           <a class="secondary" id="askIt" hidden rel="noreferrer"></a>
-          <a class="secondary" id="portal" hidden rel="noreferrer">Open the sign-in page</a>
+          <a class="primary-link" id="goSuggested" hidden rel="noreferrer"></a>
+        <a class="secondary" id="continueAnyway" hidden rel="noreferrer">Continue anyway</a>
+        <a class="secondary" id="portal" hidden rel="noreferrer">Open the sign-in page</a>
           <a class="secondary" id="download" hidden rel="noreferrer">Install Tailscale</a>
         </div>
         </div>
       </div>
 
+      <p class="ask-it-note" id="askItNote" hidden></p>
       <p class="details" id="details"></p>
     </main>
 

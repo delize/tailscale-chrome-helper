@@ -17,6 +17,10 @@ export const DEFAULTS = {
   // Off-by-default would be wrong for an individual install, where nobody has pushed the
   // client for them. Fleets that deploy Tailscale by MDM turn it off.
   showInstallLink: true,
+  // Off by default. Turning this on lets the extension act on tailnet hosts outside
+  // watchedSuffixes, purely to offer a correction. Leaving it off keeps the promise that
+  // the extension only touches domains an administrator listed.
+  suggestCorrectTailnet: false,
   tailscaleDownloadUrl: 'https://tailscale.com/download',
   // Empty by default, deliberately. Tailscale registers the tailscale:// scheme, but it
   // serves signed deeplinks only. Both tailscale:// and tailscale://connect launch the
@@ -45,7 +49,14 @@ export const DEFAULTS = {
   strings: {},
 };
 
-export const STATES = ['tailscaleOff', 'captivePortal', 'offline', 'appDown'];
+export const STATES = [
+  'tailscaleOff',
+  'captivePortal',
+  'offline',
+  'appDown',
+  'nameNotFound',
+  'wrongTailnet',
+];
 
 // Copy used when an administrator has named the organisation.
 const BRANDED = {
@@ -81,6 +92,41 @@ const BRANDED = {
       'Check wifi or your ethernet cable, and reconnect to a network you trust.',
       'Once the network is back, Tailscale usually reconnects on its own. If it does not, click its icon and flip the toggle on.',
       'Stay on this page. It keeps checking and takes you to the app once the connection returns.',
+    ],
+  },
+  // Tailscale is up and the name does not resolve on a tailnet we do watch. Not the app
+  // being down: the device is missing, offline, or not shared, and the fixes differ.
+  nameNotFound: {
+    pill: 'Tailscale is connected',
+    pillProbing: 'Tailscale is connected, checking the name',
+    pillConnected: 'Found it, taking you there',
+    pillGaveUp: 'That name still does not resolve',
+    headline: 'That address is not resolving on your tailnet',
+    lede: 'Tailscale is connected, but {host} does not resolve. Whatever is behind it may be offline, renamed, or not shared with you.',
+    steps: [
+      'Check the name for typos, including the part after the first dot.',
+      // "device list" is Tailscale's own UI label, so it stays. Everywhere else the
+      // destination could be a site, an API or a dashboard, and calling it a device
+      // assumes something we do not know.
+      'Open Tailscale and look at the device list, or check the admin console. Confirm it is listed, online, and shared with you.',
+      'If the address is right and it is online, then this is worth reporting.',
+    ],
+  },
+  // A tailnet host that is not on a watched suffix. Deliberately does not claim the
+  // address is unreachable: per Tailscale's sharing docs a device shared with you keeps
+  // the owner's tailnet name and is reachable across tailnet boundaries while you are
+  // connected to your own. So a foreign-looking name is often perfectly legitimate, and
+  // the page offers a correction without asserting the address is wrong.
+  wrongTailnet: {
+    pill: 'Different tailnet',
+    pillProbing: 'Checking',
+    pillConnected: 'Taking you there',
+    pillGaveUp: 'Still not reachable',
+    headline: 'That address is on a different tailnet',
+    lede: '{host} is not on your tailnet. That can be perfectly normal, because anything shared with you from another tailnet keeps that tailnet\'s name.',
+    steps: [
+      'If you meant something on your own tailnet, the corrected address is below.',
+      'If you did mean this one, it should work once Tailscale is connected, provided it has been shared with you. Anything shared from another tailnet has to be reached by its full address, which is what you already have here.',
     ],
   },
   appDown: {
@@ -249,6 +295,7 @@ export const CLEANERS = {
   supportLabel: (v) => cleanText(v, 40),
   checkingLabel: (v) => cleanText(v, 60),
   showInstallLink: (v) => (typeof v === 'boolean' ? v : null),
+  suggestCorrectTailnet: (v) => (typeof v === 'boolean' ? v : null),
   tailscaleDownloadUrl: cleanLink,
   openAppUrl: cleanAppUrl,
   openAppLabel: (v) => cleanText(v, 40),

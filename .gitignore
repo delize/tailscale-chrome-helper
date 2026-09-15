@@ -5,3 +5,4 @@ dist/
 *.crx
 *.pem
 dist-policy/
+dev-config.json

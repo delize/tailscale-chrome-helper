@@ -46,6 +46,14 @@ covers the SSO bounce, where a redirect to the identity provider proves the app 
 Do not reintroduce a `res.status < 500` check without also adding the host permissions
 back, which would undo the point of the permission model.
 
+## Not built, and why
+
+[docs/roadmap/native-messaging.md](docs/roadmap/native-messaging.md) records why the page
+does not offer a button that opens the Tailscale client. Short version: the `tailscale://`
+scheme serves signed deeplinks only and rejects anything else, and Native Messaging, the
+only other mechanism, needs an MDM-deployed host binary. Anything that can deploy that can
+deploy Tailscale itself. Tracked in issue #1.
+
 ## Permissions
 
 ```

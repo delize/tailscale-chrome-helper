@@ -231,7 +231,7 @@ async function main() {
   } catch {
     // sessionStorage can be unavailable. The hint is a nicety, not a need.
   }
-  const attemptsReached = attempts >= config.askItAfterAttempts;
+  let attemptsReached = attempts >= config.askItAfterAttempts;
 
   paint(state);
   if (!resolved) {
@@ -250,17 +250,61 @@ async function main() {
       location.reload();
       return;
     }
-    // Drop the worker's re-show guard for this tab and URL first. Without this a retry
-    // that fails again is treated as a Back-button bounce and swallowed, leaving the user
-    // stranded on Chrome's error page. Awaited so the worker has acted before we navigate,
-    // and failure is not fatal: the worst case is the old behaviour.
+    // Check first, navigate only on success. Navigating and hoping the worker catches the
+    // failure and brings the user back is a gamble that loses: the re-show guard cannot
+    // tell a deliberate retry from a Back-button bounce, so a failed retry could strand
+    // the user on Chrome's error page with no way back. Probing from here cannot strand
+    // anyone, because a failure never leaves the page.
+    const originalLabel = retry.textContent;
     retry.disabled = true;
+    retry.textContent = config.checkingLabel;
+    el('pill').dataset.state = 'wait';
+    el('pillText').textContent = config.checkingLabel;
+
     try {
-      await chrome.runtime.sendMessage({ type: 'retrying', url: target.href });
-    } catch {
-      // Worker asleep or unreachable. Navigate anyway.
+      const now = await currentState();
+      if (now) {
+        state = now;
+        resolved = true;
+      }
+
+      if (await appResponds()) {
+        redirecting = true;
+        el('pill').dataset.state = 'ok';
+        const copy = copyFor('appDown');
+        el('pillText').textContent = applyTokens(copy.pillConnected || copy.pill, tokens);
+        try {
+          sessionStorage.removeItem(attemptsKey);
+        } catch {
+          // Nothing to clean up if storage was unavailable.
+        }
+        // Clear the worker's guard so that if this navigation fails after all, the
+        // guidance page still comes back rather than Chrome's error page.
+        try {
+          await chrome.runtime.sendMessage({ type: 'retrying', url: target.href });
+        } catch {
+          // Worker asleep. The navigation is still worth attempting.
+        }
+        location.replace(target.href);
+        return;
+      }
+
+      // Still unreachable. Count it, so repeated manual retries surface the support route
+      // the same way repeated visits do, and repaint in case the state changed.
+      attempts += 1;
+      try {
+        sessionStorage.setItem(attemptsKey, String(attempts));
+      } catch {
+        // The counter is a nicety, not a need.
+      }
+      attemptsReached = attempts >= config.askItAfterAttempts;
+      paint(state);
+    } finally {
+      if (!redirecting) {
+        retry.disabled = false;
+        retry.textContent = originalLabel;
+      }
     }
-    location.replace(target.href);
   });
   if (!target) retry.disabled = true;
 

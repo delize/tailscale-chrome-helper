@@ -28,6 +28,8 @@
       set('emailDomain', q.get('domain'));
       set('supportUrl', q.get('support'));
       set('logoDataUrl', q.get('logo'));
+      set('bannerDataUrl', q.get('banner'));
+      set('accentColor', q.get('accent'));
       if (q.get('suffixes')) {
         managed.watchedSuffixes = q.get('suffixes').split(',').map((s) => s.trim());
       } else if (q.get('target')) {

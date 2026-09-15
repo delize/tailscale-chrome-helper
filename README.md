@@ -79,6 +79,10 @@ npm run preview
 # http://127.0.0.1:8731/tools/preview.html?state=tailscaleOff
 ```
 
+The preview server sends `no-store` deliberately. A plain static server lets Chrome cache
+ES modules between edits, so the page runs a mix of old and new code and a change looks
+like it silently did nothing.
+
 The harness defaults to an **unconfigured** install, because that is the path where
 missing copy surfaces as a literal `undefined` and where the neutral wording applies. Pass
 config explicitly to see a configured tenant:
@@ -90,6 +94,9 @@ config explicitly to see a configured tenant:
 | `tailnet` | sets `tailnetName` in the illustration |
 | `domain` | sets `emailDomain`, rendering `you@domain` |
 | `support` | sets `supportUrl`, revealing the escalation button |
+| `accent` | sets `accentColor`, e.g. `%234a63d8` (URL-encoded `#`) |
+| `banner` | sets `bannerDataUrl`, a URL-encoded `data:image/` URI |
+| `logo` | sets `logoDataUrl`, same encoding |
 | `suffixes` | comma-separated `watchedSuffixes` |
 | `target` | the failed URL. Its host is trusted as a suffix so any host previews |
 | `error` | the error string in the details footer |

@@ -134,6 +134,8 @@ async function main() {
 
   // Illustration identity, from config rather than a baked-in screenshot.
   el('menuEmail').textContent = tokens.exampleEmail;
+  // The client shows the account initial, so the illustration does too.
+  el('menuAvatar').textContent = (company || tokens.exampleEmail).trim().charAt(0) || '?';
   el('menuTailnet').textContent = tokens.tailnetName;
   el('menuManaged').textContent = company ? `Managed by ${company}` : 'Managed by your organisation';
 

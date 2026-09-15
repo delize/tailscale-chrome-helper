@@ -8,26 +8,46 @@
   </head>
   <body>
     <!-- Development harness only, never packaged. Stubs the extension APIs so the guidance
-         page can be rendered in a plain browser tab with a sample tenant applied, which is
-         how the design gets compared against the reference capture. -->
+         page renders in a plain browser tab.
+
+         It defaults to an UNCONFIGURED install on purpose. That is the path where missing
+         copy shows up as literal "undefined" and where the neutral wording is used, so it
+         is the path most worth looking at by default. Pass ?company= to see a configured
+         tenant. No real organisation is baked in here. -->
     <script>
-      const preview = new URLSearchParams(location.search);
-      const MANAGED = {
-        companyName: preview.get('company') || 'Legora',
-        watchedSuffixes: ['legora.ts.net'],
-        tailnetName: preview.get('tailnet') || 'Legora',
-        emailDomain: preview.get('domain') || 'legora.com',
-        supportUrl: 'https://example.com/help',
+      const q = new URLSearchParams(location.search);
+
+      // Every config key is driven from the query string, so the harness never carries an
+      // opinion about whose extension this is.
+      const managed = {};
+      const set = (key, value) => {
+        if (value !== null && value !== '') managed[key] = value;
       };
+      set('companyName', q.get('company'));
+      set('tailnetName', q.get('tailnet'));
+      set('emailDomain', q.get('domain'));
+      set('supportUrl', q.get('support'));
+      set('logoDataUrl', q.get('logo'));
+      if (q.get('suffixes')) {
+        managed.watchedSuffixes = q.get('suffixes').split(',').map((s) => s.trim());
+      } else if (q.get('target')) {
+        // Keep ?target= working for any host by trusting it in the harness only. The real
+        // extension validates the target against policy; this is a preview, not a test of
+        // that validation, which tests/config.test.mjs covers directly.
+        try {
+          managed.watchedSuffixes = [new URL(q.get('target')).hostname];
+        } catch {
+          /* fall through to the default */
+        }
+      }
+
       globalThis.chrome = {
         storage: {
-          managed: { get: (_k, cb) => cb(preview.get('unmanaged') ? {} : MANAGED) },
+          managed: { get: (_k, cb) => cb(managed) },
           sync: { get: (_k, cb) => cb({}) },
           onChanged: { addListener: () => {} },
         },
-        runtime: {
-          sendMessage: async () => preview.get('live') || null,
-        },
+        runtime: { sendMessage: async () => q.get('live') || null },
       };
     </script>
     <script type="module">

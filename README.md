@@ -79,9 +79,22 @@ npm run preview
 # http://127.0.0.1:8731/tools/preview.html?state=tailscaleOff
 ```
 
-`state` accepts `tailscaleOff`, `captivePortal`, `offline` and `appDown`. Add
-`&unmanaged=1` to see the unconfigured install, and `&target=`/`&error=` to set the host
-and error text.
+The harness defaults to an **unconfigured** install, because that is the path where
+missing copy surfaces as a literal `undefined` and where the neutral wording applies. Pass
+config explicitly to see a configured tenant:
+
+| Parameter | Effect |
+|---|---|
+| `state` | `tailscaleOff`, `captivePortal`, `offline`, `appDown` |
+| `company` | sets `companyName`, switching to the branded copy |
+| `tailnet` | sets `tailnetName` in the illustration |
+| `domain` | sets `emailDomain`, rendering `you@domain` |
+| `support` | sets `supportUrl`, revealing the escalation button |
+| `suffixes` | comma-separated `watchedSuffixes` |
+| `target` | the failed URL. Its host is trusted as a suffix so any host previews |
+| `error` | the error string in the details footer |
+
+No organisation is hardcoded in the harness. Nothing under `tools/` is packaged.
 
 To test the real extension, load the repository as an unpacked extension from
 `chrome://extensions` with developer mode on.

@@ -411,12 +411,19 @@ code {
   font-size: 10px;
 }
 
+/* A letter circle, as the real client renders it, carrying the tenant's initial. */
 .avatar {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: #6366f1;
+  background: #4a4f5c;
+  color: #f2f4f8;
   flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
 .menu-account {

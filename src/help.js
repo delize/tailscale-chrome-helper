@@ -66,6 +66,10 @@ function renderTemplate(container, template, tokens) {
   }
 }
 
+// Every link here opens in a new tab. The page tells the user to stay on it, and it
+// takes them to the app by itself once the connection returns, so navigating away is
+// the one thing that breaks the recovery it promises. mailto: is exempt because a new
+// tab for a mail handler just leaves a blank one behind.
 function setLink(anchor, wrap, href, label) {
   if (!href) {
     (wrap || anchor).hidden = true;
@@ -73,6 +77,13 @@ function setLink(anchor, wrap, href, label) {
   }
   anchor.href = href;
   if (label) anchor.textContent = label;
+  if (href.startsWith('mailto:')) {
+    anchor.removeAttribute('target');
+    anchor.rel = 'noreferrer';
+  } else {
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+  }
   (wrap || anchor).hidden = false;
   return true;
 }

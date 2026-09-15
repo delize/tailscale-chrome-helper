@@ -42,6 +42,11 @@
       "description": "Text on the escalation button. Defaults to 'Ask IT'.",
       "type": "string"
     },
+    "checkingLabel": {
+      "title": "Checking label",
+      "description": "Status shown for the moment between the page appearing and the connection check finishing. Default 'Checking your connection'.",
+      "type": "string"
+    },
     "showInstallLink": {
       "title": "Offer an install link",
       "description": "Whether to offer a Tailscale download link to a user who appears not to have the client running. Set false where Tailscale is deployed by MDM and users cannot or should not install it themselves, so the guidance points at your support route instead. Default true.",

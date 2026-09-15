@@ -13,6 +13,7 @@ export const DEFAULTS = {
   emailDomain: '',
   supportUrl: '',
   supportLabel: 'Ask IT',
+  checkingLabel: 'Checking your connection',
   // Off-by-default would be wrong for an individual install, where nobody has pushed the
   // client for them. Fleets that deploy Tailscale by MDM turn it off.
   showInstallLink: true,
@@ -203,6 +204,7 @@ export const CLEANERS = {
   emailDomain: (v) => cleanText(v, 120),
   supportUrl: cleanLink,
   supportLabel: (v) => cleanText(v, 40),
+  checkingLabel: (v) => cleanText(v, 60),
   showInstallLink: (v) => (typeof v === 'boolean' ? v : null),
   tailscaleDownloadUrl: cleanLink,
   connectHelpUrl: cleanLink,

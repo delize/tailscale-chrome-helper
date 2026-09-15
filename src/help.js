@@ -81,8 +81,13 @@ async function main() {
   const { config } = await loadConfig();
   const target = parseTarget(config.watchedSuffixes);
 
-  let state = params.get('state');
-  if (!STATES.includes(state)) state = 'tailscaleOff';
+  // The worker no longer classifies before showing this page, because its probes take
+  // seconds when Tailscale is off. Without a state we render the common case immediately
+  // and correct it as soon as the check comes back, which is the difference between the
+  // page appearing at once and appearing after a two second stare at Chrome's error page.
+  const declared = params.get('state');
+  let state = STATES.includes(declared) ? declared : 'tailscaleOff';
+  let resolved = STATES.includes(declared);
 
   const company = config.companyName;
   const tokens = {
@@ -183,6 +188,10 @@ async function main() {
   if (attemptsReached) setLink(el('askIt'), null, config.supportUrl, config.supportLabel);
 
   paint(state);
+  if (!resolved) {
+    el('pill').dataset.state = 'wait';
+    el('pillText').textContent = config.checkingLabel;
+  }
 
   const detailBits = [];
   if (tokens.error) detailBits.push(tokens.error);
@@ -257,8 +266,14 @@ async function main() {
     ticking = true;
     try {
       const now = await currentState();
-      if (now && now !== state) {
+      if (now && (now !== state || !resolved)) {
         state = now;
+        resolved = true;
+        paint(state);
+      } else if (!now && !resolved) {
+        // The worker did not answer. Showing the most likely guidance beats leaving the
+        // user on a status that never resolves, so stop waiting and commit to it.
+        resolved = true;
         paint(state);
       }
       if (state !== 'appDown') return;

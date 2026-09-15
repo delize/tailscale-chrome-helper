@@ -138,8 +138,12 @@ chrome.webNavigation.onErrorOccurred.addListener(async (details) => {
   if (!matchesWatched(details.url, config.watchedSuffixes)) return;
   if (suppressor.shouldSuppress(details.tabId, details.url, config.suppressMs)) return;
 
-  const state = await classify(config);
-  await showHelpPage(details.tabId, details.url, { error: details.error, state });
+  // Deliberately not classified here. The Quad100 probe is blackholed rather than refused
+  // when Tailscale is off, so it burns its full timeout, and the portal probe adds another
+  // round trip. Waiting for both left the user staring at Chrome's error page for one to
+  // three seconds. The guidance page renders immediately and asks for the classification
+  // itself, which it already does on every poll.
+  await showHelpPage(details.tabId, details.url, { error: details.error });
 });
 
 // The guidance page asks the worker to probe rather than fetching Quad100 itself, so the

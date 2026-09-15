@@ -25,6 +25,10 @@ export const DEFAULTS = {
   // sees failed navigations, not all of them, and retyping the address bypasses it
   // entirely. Real enforcement is Tailscale ACLs and sharing policy, server side.
   showContinueAnyway: true,
+  // Counts failed navigations to tailnet hosts that are not watched, in local storage
+  // only. Off by default: it is a record of where someone tried to go, and that should be
+  // a deliberate choice rather than a default. Never transmitted by this extension.
+  recordUnwatchedHosts: false,
   tailscaleDownloadUrl: 'https://tailscale.com/download',
   // Empty by default, deliberately. Tailscale registers the tailscale:// scheme, but it
   // serves signed deeplinks only. Both tailscale:// and tailscale://connect launch the
@@ -305,6 +309,7 @@ export const CLEANERS = {
   showInstallLink: (v) => (typeof v === 'boolean' ? v : null),
   suggestCorrectTailnet: (v) => (typeof v === 'boolean' ? v : null),
   showContinueAnyway: (v) => (typeof v === 'boolean' ? v : null),
+  recordUnwatchedHosts: (v) => (typeof v === 'boolean' ? v : null),
   tailscaleDownloadUrl: cleanLink,
   openAppUrl: cleanAppUrl,
   openAppLabel: (v) => cleanText(v, 40),

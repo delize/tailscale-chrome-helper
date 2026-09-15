@@ -7,6 +7,7 @@
 
 import { loadConfig, watchConfig, matchesWatched } from './config.js';
 import { createSuppressor } from './suppression.js';
+import { recordUnwatchedHit } from './hostlog.js';
 
 // Tailscale's Quad100 magic IP. It answers HTTP only while the client is connected, so
 // it doubles as a connectivity probe.
@@ -173,6 +174,11 @@ chrome.webNavigation.onErrorOccurred.addListener(async (details) => {
   const watched = matchesWatched(details.url, config.watchedSuffixes);
   let suggestion = null;
   if (!watched) {
+    // Recorded before the opt-in checks below, so the count is useful even to an
+    // administrator who has not turned the suggestion on. Tailnet hosts only, and it
+    // stays on the device.
+    if (config.recordUnwatchedHosts) await recordUnwatchedHit(details.url);
+
     // The only case where this extension acts outside the configured domains, and only to
     // offer a correction. Opt-in, and silent for anyone who has not turned it on.
     if (!config.suggestCorrectTailnet) return;

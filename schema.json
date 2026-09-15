@@ -62,6 +62,11 @@
       "description": "Whether the wrongTailnet page offers a button to continue to the address the user typed. Default true. Setting false hides the button and removes the step that mentions it. IMPORTANT: this does not prevent access. The extension only sees failed navigations, and retyping the address bypasses it entirely. Enforce access to other tailnets with Tailscale ACLs and sharing policy, not with this setting.",
       "type": "boolean"
     },
+    "recordUnwatchedHosts": {
+      "title": "Count failed visits to other tailnets",
+      "description": "Keep a local count of failed navigations to tailnet hosts that are not on your watched suffixes, so you can see that people keep trying to reach the wrong one. Off by default. Only .ts.net hosts are recorded, never ordinary browsing, and this extension never transmits the counts: they stay in the browser profile for a fleet tool to read.",
+      "type": "boolean"
+    },
     "tailscaleDownloadUrl": {
       "title": "Tailscale download link",
       "description": "Shown to users who have no Tailscale client at all. Defaults to the official download page.",

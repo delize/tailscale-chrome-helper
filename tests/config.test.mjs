@@ -265,3 +265,28 @@ test('the target allowlist stays narrow even after widening for wrongTailnet', (
   assert.ok(!matchesWatched('https://evil.example/', ['ts.net']));
   assert.ok(!matchesWatched('https://ts.net.evil.example/', ['ts.net']));
 });
+
+test('the host counter only records tailnet hosts and stays bounded', async () => {
+  const { isTailnetHost, mergeHit, STORAGE_VERSION } = await import('../src/hostlog.js');
+
+  // Ordinary browsing must never be recorded. That restraint is the whole privacy story.
+  assert.ok(isTailnetHost('dashboard.contoso.ts.net'));
+  assert.ok(!isTailnetHost('example.com'));
+  assert.ok(!isTailnetHost('ts.net.evil.example'));
+
+  let store = mergeHit(null, 'a.contoso.ts.net', 1000);
+  assert.equal(store.version, STORAGE_VERSION);
+  assert.equal(store.hosts['a.contoso.ts.net'].count, 1);
+  assert.equal(store.hosts['a.contoso.ts.net'].firstSeen, 1000);
+
+  store = mergeHit(store, 'a.contoso.ts.net', 2000);
+  assert.equal(store.hosts['a.contoso.ts.net'].count, 2);
+  assert.equal(store.hosts['a.contoso.ts.net'].firstSeen, 1000, 'firstSeen must not move');
+  assert.equal(store.hosts['a.contoso.ts.net'].lastSeen, 2000);
+
+  // A long-lived profile must not grow this without limit.
+  for (let i = 0; i < 400; i += 1) store = mergeHit(store, `h${i}.contoso.ts.net`, 3000 + i);
+  assert.ok(Object.keys(store.hosts).length <= 200, 'bounded');
+  // Eviction is least-recently-seen, so the newest survive.
+  assert.ok(store.hosts['h399.contoso.ts.net'], 'most recent kept');
+});

@@ -126,6 +126,7 @@ Policy changes apply without a browser restart.
 | `showInstallLink` | boolean | `true` | Set false where Tailscale is deployed by MDM, so users are not told to install it themselves. |
 | `suggestCorrectTailnet` | boolean | `false` | Offer the corrected address when a user lands on a different tailnet. See below. |
 | `showContinueAnyway` | boolean | `true` | Whether that page offers a way past the suggestion. Hides a button, does not block access. See below. |
+| `recordUnwatchedHosts` | boolean | `false` | Count failed visits to other tailnets, locally. See below. |
 | `tailscaleDownloadUrl` | string | Tailscale's download page | Offered only when Tailscale is not running, and only if `showInstallLink` is true. |
 | `openAppUrl` | string | unset | Link offered when the icon cannot be found. Accepts `tailscale:` or `https:`. Off by default, see below. |
 | `openAppLabel` | string | `Open Tailscale` | Text of that link. |
@@ -247,6 +248,16 @@ you have configured more than one tailnet, or when `watchedSuffixes` is the broa
 By default the user can continue to the address they typed. That choice is remembered for
 the rest of the browser session, so the extension stops interposing for that host. A
 suggestion you cannot decline is an interception.
+
+### Counting failed visits to other tailnets
+
+`recordUnwatchedHosts` keeps a local tally so you can see that people keep trying to reach
+the wrong tailnet. Off by default.
+
+Only `*.ts.net` hosts are recorded, never ordinary browsing, and only navigations that
+failed. The extension never transmits the counts. See
+[host-counts.md](host-counts.md) for the storage shape, which is a stable contract, and
+for how to read it with osquery.
 
 ### showContinueAnyway is not an access control
 

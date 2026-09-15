@@ -12,6 +12,7 @@
   "showInstallLink": false,
   "suggestCorrectTailnet": false,
   "showContinueAnyway": true,
+  "recordUnwatchedHosts": false,
   "tailscaleDownloadUrl": "https://tailscale.com/download",
   "openAppUrl": "",
   "openAppLabel": "Open Tailscale",

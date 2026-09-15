@@ -19,6 +19,7 @@ const INCLUDE = [
   'src/background.js',
   'src/config.js',
   'src/suppression.js',
+  'src/hostlog.js',
   'src/help.html',
   'src/help.css',
   'src/help.js',

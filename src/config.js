@@ -36,6 +36,10 @@ export const DEFAULTS = {
   probeTimeoutMs: 1500,
   targetTimeoutMs: 4000,
   pollIntervalMs: 2500,
+  // Polling is bounded. Without this the page retried forever while promising the app was
+  // 'not responding yet', which is an optimistic claim it cannot keep, and it kept the
+  // service worker resident indefinitely.
+  pollTimeoutMs: 120000,
   suppressMs: 8000,
   askItAfterAttempts: 2,
   strings: {},
@@ -83,6 +87,7 @@ const BRANDED = {
     pill: 'Tailscale is connected',
     pillProbing: 'Tailscale is connected, reaching the app',
     pillConnected: 'Connected, taking you to the app',
+    pillGaveUp: 'The app is still not answering',
     headline: 'The app is not responding yet',
     lede: 'Tailscale is connected, but {host} has not answered. The app may still be starting, or it may be down.',
     steps: [
@@ -221,7 +226,7 @@ function cleanStrings(value) {
     const src = value[state];
     if (!src || typeof src !== 'object') continue;
     const dst = {};
-    for (const field of ['pill', 'pillProbing', 'pillConnected', 'headline', 'lede']) {
+    for (const field of ['pill', 'pillProbing', 'pillConnected', 'pillGaveUp', 'headline', 'lede']) {
       const text = cleanText(src[field]);
       if (text !== null) dst[field] = text;
     }
@@ -257,6 +262,7 @@ export const CLEANERS = {
   probeTimeoutMs: (v) => cleanInt(v, 200, 30000),
   targetTimeoutMs: (v) => cleanInt(v, 200, 30000),
   pollIntervalMs: (v) => cleanInt(v, 500, 60000),
+  pollTimeoutMs: (v) => cleanInt(v, 10000, 3600000),
   // Floor of 1 rather than 0: zero reads as 'do not suppress' and silently reinstates
   // the Back-button bounce the map exists to prevent.
   suppressMs: (v) => cleanInt(v, 1, 120000),

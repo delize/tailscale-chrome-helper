@@ -112,6 +112,11 @@
       "description": "How often the guidance page rechecks connectivity. Default 2500.",
       "type": "integer"
     },
+    "pollTimeoutMs": {
+      "title": "Give up after (ms)",
+      "description": "How long the guidance page keeps checking before it stops and says so. Default 120000, two minutes. Retrying forever keeps the service worker resident and tells the user success is imminent when it may not be.",
+      "type": "integer"
+    },
     "suppressMs": {
       "title": "Re-show suppression (ms)",
       "description": "How long to avoid re-showing the guidance page for the same tab and URL, so pressing Back does not bounce the user forward again. Default 8000.",
@@ -141,6 +146,10 @@
             },
             "pillConnected": {
               "description": "Status label shown just before the page returns the user to the app.",
+              "type": "string"
+            },
+            "pillGaveUp": {
+              "description": "Status shown once the page has stopped checking.",
               "type": "string"
             },
             "headline": {
@@ -176,6 +185,10 @@
               "description": "Status label shown just before the page returns the user to the app.",
               "type": "string"
             },
+            "pillGaveUp": {
+              "description": "Status shown once the page has stopped checking.",
+              "type": "string"
+            },
             "headline": {
               "description": "Main heading. Placeholders are substituted as plain text.",
               "type": "string"
@@ -209,6 +222,10 @@
               "description": "Status label shown just before the page returns the user to the app.",
               "type": "string"
             },
+            "pillGaveUp": {
+              "description": "Status shown once the page has stopped checking.",
+              "type": "string"
+            },
             "headline": {
               "description": "Main heading. Placeholders are substituted as plain text.",
               "type": "string"
@@ -240,6 +257,10 @@
             },
             "pillConnected": {
               "description": "Status label shown just before the page returns the user to the app.",
+              "type": "string"
+            },
+            "pillGaveUp": {
+              "description": "Status shown once the page has stopped checking.",
               "type": "string"
             },
             "headline": {

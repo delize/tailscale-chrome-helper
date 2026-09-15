@@ -22,6 +22,7 @@
   "probeTimeoutMs": 1500,
   "targetTimeoutMs": 4000,
   "pollIntervalMs": 2500,
+  "pollTimeoutMs": 120000,
   "suppressMs": 8000,
   "askItAfterAttempts": 2,
   "strings": {

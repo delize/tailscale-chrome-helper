@@ -256,6 +256,7 @@ async function main() {
     // the user on Chrome's error page with no way back. Probing from here cannot strand
     // anyone, because a failure never leaves the page.
     const originalLabel = retry.textContent;
+    gaveUp = false;
     retry.disabled = true;
     retry.textContent = config.checkingLabel;
     el('pill').dataset.state = 'wait';
@@ -350,9 +351,13 @@ async function main() {
 
   let ticking = false;
   let redirecting = false;
+  let gaveUp = false;
 
   async function tick() {
-    if (ticking || redirecting) return;
+    if (ticking || redirecting || gaveUp) return;
+    // Nobody is looking at a background tab, and a probe every few seconds there is pure
+    // waste that also keeps the worker awake.
+    if (document.hidden) return;
     ticking = true;
     try {
       const now = await currentState();
@@ -395,7 +400,21 @@ async function main() {
   }
 
   tick();
-  setInterval(tick, config.pollIntervalMs);
+  const poller = setInterval(tick, config.pollIntervalMs);
+
+  // Stop checking eventually. Retrying forever kept the service worker resident and left
+  // the page claiming the app was 'not responding yet', which promises a success it has no
+  // reason to expect. Try again still works, so giving up is not a dead end.
+  setTimeout(() => {
+    if (redirecting) return;
+    clearInterval(poller);
+    gaveUp = true;
+    const copy = copyFor(state);
+    el('pill').dataset.state = 'bad';
+    el('pillText').textContent = applyTokens(copy.pillGaveUp || copy.pill, tokens);
+    // At this point it is worth reporting whatever the attempt count says.
+    setLink(el('askIt'), null, config.supportUrl, config.supportLabel);
+  }, config.pollTimeoutMs);
 }
 
 main();

@@ -134,6 +134,7 @@ Policy changes apply without a browser restart.
 | `probeTimeoutMs` | integer | `1500` | Clamped to 200 to 30000. |
 | `targetTimeoutMs` | integer | `4000` | Clamped to 200 to 30000. |
 | `pollIntervalMs` | integer | `2500` | Clamped to 500 to 60000. |
+| `pollTimeoutMs` | integer | `120000` | How long the page keeps checking before it stops and says so. Clamped to 10000 to 3600000. |
 | `suppressMs` | integer | `8000` | Clamped to 0 to 120000. |
 | `askItAfterAttempts` | integer | `2` | Clamped to 1 to 20. |
 | `strings` | object | unset | Copy overrides, see below. |
@@ -267,6 +268,7 @@ default.
 | `steps` | The numbered instructions, as an array of strings. |
 | `pillProbing` | Status while the page is checking whether the app answers. `appDown` only. |
 | `pillConnected` | Status shown just before the user is returned to the app. `appDown` only. |
+| `pillGaveUp` | Status shown once the page has stopped checking, after `pollTimeoutMs`. |
 
 Available placeholders: `{company}`, `{host}`, `{error}`, `{tailnetName}`,
 `{exampleEmail}` and `{openApp}`. They are inserted as plain text, so markup in a value

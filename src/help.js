@@ -126,9 +126,10 @@ async function main() {
     // Otherwise it demonstrates the off-to-on gesture on a loop, because the toggle is
     // the single thing the user has to find and the page should not make them guess.
     const connected = name === 'appDown';
-    const menu = el('menu');
-    menu.classList.toggle('connected', connected);
-    menu.classList.toggle('demo', !connected);
+    // On the illustration rather than the menu, so the demo also drives the menu bar icon.
+    const illustration = el('illustration');
+    illustration.classList.toggle('connected', connected);
+    illustration.classList.toggle('demo', !connected);
     el('menuToggle').classList.toggle('on', connected);
 
     // When Tailscale is already up, telling someone where to find its icon is noise.

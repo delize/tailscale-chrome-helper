@@ -248,15 +248,32 @@ code {
 
 /* The real client turns this row blue on connect, so the illustration does too. That
    colour change is the confirmation a user looks for, more than the toggle position. */
-.menu.demo .menu-head { animation: headConnect 4.5s ease-in-out infinite; }
-.menu.demo .toggle { animation: toggleConnect 4.5s ease-in-out infinite; }
-.menu.demo .knob { animation: knobConnect 4.5s ease-in-out infinite; }
-.menu.demo .cursor { animation: cursorTap 4.5s ease-in-out infinite; }
-.menu.demo .state-off { animation: labelOff 4.5s ease-in-out infinite; }
-.menu.demo .state-on { animation: labelOn 4.5s ease-in-out infinite; }
+.illustration.demo .menu-head { animation: headConnect 4.5s ease-in-out infinite; }
+.illustration.demo .toggle { animation: toggleConnect 4.5s ease-in-out infinite; }
+.illustration.demo .knob { animation: knobConnect 4.5s ease-in-out infinite; }
+.illustration.demo .cursor { animation: cursorTap 4.5s ease-in-out infinite; }
+.illustration.demo .state-off { animation: labelOff 4.5s ease-in-out infinite; }
+.illustration.demo .state-on { animation: labelOn 4.5s ease-in-out infinite; }
+
+/* The tray icon is what the user will actually watch change on their own screen, so it
+   brightens in step with the toggle rather than sitting permanently connected. */
+.illustration.demo .menubar .mark { animation: markConnect 4.5s ease-in-out infinite; }
+.illustration.demo .glyph-active { animation: trayConnect 4.5s ease-in-out infinite; }
+
+@keyframes markConnect {
+  0%, 38% { color: #565b68; }
+  50%, 88% { color: #eef0f6; }
+  100% { color: #565b68; }
+}
+
+@keyframes trayConnect {
+  0%, 38% { background: rgba(255, 255, 255, 0.06); }
+  50%, 88% { background: rgba(255, 255, 255, 0.18); }
+  100% { background: rgba(255, 255, 255, 0.06); }
+}
 
 /* Ring drawing the eye to the one control that matters. */
-.menu.demo .toggle::after {
+.illustration.demo .toggle::after {
   content: "";
   position: absolute;
   inset: -5px;
@@ -325,9 +342,9 @@ code {
 }
 
 .menu-sub .state-on { opacity: 0; }
-.menu.connected .menu-sub .state-off { opacity: 0; }
-.menu.connected .menu-sub .state-on { opacity: 1; }
-.menu.connected .menu-head { background: #3b5bdb; }
+.illustration.connected .menu-sub .state-off { opacity: 0; }
+.illustration.connected .menu-sub .state-on { opacity: 1; }
+.illustration.connected .menu-head { background: #3b5bdb; }
 
 .menu-head > div { flex: 1; }
 
@@ -369,17 +386,19 @@ code {
 
 @media (prefers-reduced-motion: reduce) {
   .toggle, .knob { transition: none; }
-  .menu.demo .menu-head,
-  .menu.demo .toggle,
-  .menu.demo .knob,
-  .menu.demo .cursor,
-  .menu.demo .state-off,
-  .menu.demo .state-on,
-  .menu.demo .toggle::after {
+  .illustration.demo .menu-head,
+  .illustration.demo .toggle,
+  .illustration.demo .knob,
+  .illustration.demo .cursor,
+  .illustration.demo .state-off,
+  .illustration.demo .state-on,
+  .illustration.demo .toggle::after,
+  .illustration.demo .menubar .mark,
+  .illustration.demo .glyph-active {
     animation: none;
   }
   /* Static emphasis instead of movement. */
-  .menu.demo .toggle::after { opacity: 0.9; }
+  .illustration.demo .toggle::after { opacity: 0.9; }
 }
 
 /* Pointer sitting just below the toggle, showing exactly what to click. */

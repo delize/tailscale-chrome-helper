@@ -169,6 +169,12 @@ code {
   display: block;
 }
 
+/* Connected lights up the middle row and the bottom centre dot, forming a faint t. The
+   other five stay recessed. Disconnected is the whole grid evenly dim with no pattern at
+   all, which is the difference a user is actually scanning their menu bar for. */
+.mark .dim { opacity: 0.3; }
+.mark.faint .dim { opacity: 1; }
+
 .mark.faint { color: #565b68; }
 .mark.bright { color: #eef0f6; }
 
@@ -258,12 +264,21 @@ code {
 /* The tray icon is what the user will actually watch change on their own screen, so it
    brightens in step with the toggle rather than sitting permanently connected. */
 .illustration.demo .menubar .mark { animation: markConnect 4.5s ease-in-out infinite; }
+/* The tray icon has to change shape as well as brightness, or the demo shows the wrong
+   before-state: evenly dim while disconnected, the t emerging on connect. */
+.illustration.demo .menubar .mark .dim { animation: dimPhase 4.5s ease-in-out infinite; }
 .illustration.demo .glyph-active { animation: trayConnect 4.5s ease-in-out infinite; }
 
 @keyframes markConnect {
   0%, 38% { color: #565b68; }
   50%, 88% { color: #eef0f6; }
   100% { color: #565b68; }
+}
+
+@keyframes dimPhase {
+  0%, 38% { opacity: 1; }
+  50%, 88% { opacity: 0.3; }
+  100% { opacity: 1; }
 }
 
 @keyframes trayConnect {
@@ -394,6 +409,7 @@ code {
   .illustration.demo .state-on,
   .illustration.demo .toggle::after,
   .illustration.demo .menubar .mark,
+  .illustration.demo .menubar .mark .dim,
   .illustration.demo .glyph-active {
     animation: none;
   }

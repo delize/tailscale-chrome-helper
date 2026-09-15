@@ -138,11 +138,6 @@ code {
   color: var(--text);
 }
 
-.glyph-square {
-  border: 1.5px solid var(--text);
-  border-radius: 2px;
-}
-
 .glyph-active {
   opacity: 1;
   width: 22px;

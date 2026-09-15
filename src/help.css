@@ -241,8 +241,93 @@ code {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 10px 2px;
+  padding: 6px 10px;
+  margin: -10px 0 0;
+  border-radius: 9px 9px 0 0;
 }
+
+/* The real client turns this row blue on connect, so the illustration does too. That
+   colour change is the confirmation a user looks for, more than the toggle position. */
+.menu.demo .menu-head { animation: headConnect 4.5s ease-in-out infinite; }
+.menu.demo .toggle { animation: toggleConnect 4.5s ease-in-out infinite; }
+.menu.demo .knob { animation: knobConnect 4.5s ease-in-out infinite; }
+.menu.demo .cursor { animation: cursorTap 4.5s ease-in-out infinite; }
+.menu.demo .state-off { animation: labelOff 4.5s ease-in-out infinite; }
+.menu.demo .state-on { animation: labelOn 4.5s ease-in-out infinite; }
+
+/* Ring drawing the eye to the one control that matters. */
+.menu.demo .toggle::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 999px;
+  border: 2px solid var(--accent);
+  animation: ring 4.5s ease-in-out infinite;
+}
+
+.toggle { position: relative; }
+
+@keyframes headConnect {
+  0%, 38% { background: transparent; }
+  50%, 88% { background: #3b5bdb; }
+  100% { background: transparent; }
+}
+
+@keyframes toggleConnect {
+  0%, 38% { background: #55596a; }
+  50%, 88% { background: #1c2f6b; }
+  100% { background: #55596a; }
+}
+
+@keyframes knobConnect {
+  0%, 38% { transform: translateX(0); }
+  50%, 88% { transform: translateX(15px); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes labelOff {
+  0%, 38% { opacity: 1; }
+  44%, 94% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes labelOn {
+  0%, 38% { opacity: 0; }
+  50%, 88% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* The pointer nudges in just before the state flips, so the gesture reads as a click. */
+@keyframes cursorTap {
+  0%, 26% { transform: translate(0, 0); }
+  34%, 44% { transform: translate(-2px, -2px); }
+  52%, 100% { transform: translate(0, 0); }
+}
+
+@keyframes ring {
+  0%, 30% { opacity: 0.9; transform: scale(1); }
+  40% { opacity: 0; transform: scale(1.35); }
+  41%, 100% { opacity: 0; transform: scale(1); }
+}
+
+/* The label spans stack so the row does not reflow as the text swaps. */
+.menu-sub {
+  position: relative;
+  min-height: 12px;
+}
+
+.menu-sub .state-off,
+.menu-sub .state-on {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+}
+
+.menu-sub .state-on { opacity: 0; }
+.menu.connected .menu-sub .state-off { opacity: 0; }
+.menu.connected .menu-sub .state-on { opacity: 1; }
+.menu.connected .menu-head { background: #3b5bdb; }
 
 .menu-head > div { flex: 1; }
 
@@ -284,6 +369,17 @@ code {
 
 @media (prefers-reduced-motion: reduce) {
   .toggle, .knob { transition: none; }
+  .menu.demo .menu-head,
+  .menu.demo .toggle,
+  .menu.demo .knob,
+  .menu.demo .cursor,
+  .menu.demo .state-off,
+  .menu.demo .state-on,
+  .menu.demo .toggle::after {
+    animation: none;
+  }
+  /* Static emphasis instead of movement. */
+  .menu.demo .toggle::after { opacity: 0.9; }
 }
 
 /* Pointer sitting just below the toggle, showing exactly what to click. */

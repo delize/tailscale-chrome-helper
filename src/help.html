@@ -62,11 +62,14 @@
             </div>
           </div>
 
-          <div class="menu">
-            <div class="menu-head">
+          <div class="menu" id="menu">
+            <div class="menu-head" id="menuHead">
               <div>
                 <p class="menu-title">Tailscale</p>
-                <p class="menu-sub" id="menuState">Not Connected</p>
+                <p class="menu-sub" id="menuState">
+                  <span class="state-off">Not Connected</span>
+                  <span class="state-on">Connected</span>
+                </p>
               </div>
               <span class="toggle" id="menuToggle" aria-hidden="true"><span class="knob"></span></span>
               <svg class="cursor" viewBox="0 0 12 16" aria-hidden="true">

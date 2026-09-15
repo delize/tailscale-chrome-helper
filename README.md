@@ -96,8 +96,42 @@ config explicitly to see a configured tenant:
 
 No organisation is hardcoded in the harness. Nothing under `tools/` is packaged.
 
-To test the real extension, load the repository as an unpacked extension from
-`chrome://extensions` with developer mode on.
+### Loading it in Chrome
+
+```sh
+npm run build      # stages the shippable files into dist/
+```
+
+Then open `chrome://extensions`, turn on Developer mode, click **Load unpacked** and
+choose the `dist/` directory. Load `dist/`, not the repository root: the repo contains the
+preview harness, tests and tooling, none of which belong in an installed extension.
+
+### Testing configuration
+
+Two layers, and they exercise different code.
+
+**User settings, no privileges needed.** Open the extension's options page and fill it in.
+That writes `chrome.storage.sync` and covers validation, the guidance page and the copy.
+The **Preview guidance page** button on that page opens the real page with your settings
+applied, in a mode that renders and stops rather than probing the network.
+
+**Administrator policy.** Only this covers precedence over user settings, the locked
+fields, and the rejected-value report, because those read `chrome.storage.managed`. You do
+not need a Google Admin console:
+
+```sh
+python3 tools/dev_policy.py                      # sample tenant
+python3 tools/dev_policy.py --config my.json     # your own settings
+```
+
+It writes a policy file into `dist-policy/` and prints the command to install it. It never
+installs anything itself, since that needs administrator rights. It also refuses to
+suggest overwriting an existing managed-preferences file, which on a work machine would
+wipe your employer's MDM policy.
+
+Afterwards, check `chrome://policy`. A key showing **"Not set"** reached Chrome but failed
+schema validation. A key that Chrome accepted but this extension rejected shows as applied
+there, and is reported on the options page instead.
 
 `tools/check.mjs` fails the build if a config key exists in code but not in the
 administrator-facing schema, or if the permission set changes. Both are drift that would

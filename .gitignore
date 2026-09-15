@@ -4,3 +4,4 @@ dist/
 *.zip
 *.crx
 *.pem
+dist-policy/

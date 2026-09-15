@@ -9,7 +9,8 @@
     "test": "node --test tests/config.test.mjs",
     "verify": "node tools/check.mjs && node --test tests/config.test.mjs && python3 tools/validate_manifest.py",
     "preview": "python3 -m http.server 8731 --bind 127.0.0.1",
-    "package": "node tools/package.mjs",
-    "validate": "python3 tools/validate_manifest.py"
+    "package": "node tools/build.mjs --zip",
+    "validate": "python3 tools/validate_manifest.py",
+    "build": "node tools/build.mjs"
   }
 }

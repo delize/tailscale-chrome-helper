@@ -127,9 +127,13 @@ fields, and the rejected-value report, because those read `chrome.storage.manage
 not need a Google Admin console:
 
 ```sh
-python3 tools/dev_policy.py                      # sample tenant
-python3 tools/dev_policy.py --config my.json     # your own settings
+cp dev-config.example.json dev-config.json       # then edit it
+python3 tools/dev_policy.py --config dev-config.json
+python3 tools/dev_policy.py                      # or just use the built-in sample
 ```
+
+`dev-config.json` is gitignored, because a real one carries your organisation's name,
+domain and support address. Keep test tenants out of commits.
 
 It writes a policy file into `dist-policy/` and prints the command to install it. It never
 installs anything itself, since that needs administrator rights. It also refuses to

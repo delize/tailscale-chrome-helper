@@ -58,7 +58,7 @@ for (const hasCompany of [true, false]) {
   }
 }
 
-// The four inlined schema blocks must expose exactly the fields cleanStrings accepts.
+// Each inlined schema block must expose exactly the fields cleanStrings accepts.
 const COPY_FIELDS = ['pill', 'headline', 'lede', 'steps'];
 for (const state of STATES) {
   const block = schema.properties.strings.properties[state];
@@ -104,6 +104,24 @@ for (const key of Object.keys(fullExample)) {
   if (!defaultKeys.includes(key)) {
     problems.push(`examples/admin-console-full.json has "${key}", which is not a setting`);
   }
+}
+
+// Per-state maps that fail silently when a state is missing: a wrong pill colour, or the
+// connect-the-toggle illustration shown on a state where Tailscale is already up. Both
+// were missed when the two newest states were added.
+const helpSource = readFileSync(new URL('../src/help.js', import.meta.url), 'utf8');
+const pillTone = helpSource.slice(helpSource.indexOf('const PILL_TONE'), helpSource.indexOf('};', helpSource.indexOf('const PILL_TONE')));
+for (const state of STATES) {
+  if (!pillTone.includes(`${state}:`)) {
+    problems.push(`PILL_TONE in src/help.js has no entry for "${state}"`);
+  }
+}
+
+// The options page preview must be able to render every state, since it is the only place
+// an administrator can check their copy overrides before users see them.
+const optionsSource = readFileSync(new URL('../src/options.js', import.meta.url), 'utf8');
+if (!optionsSource.includes('for (const state of STATES)')) {
+  problems.push('src/options.js must build the preview list from STATES, not a fixed list');
 }
 
 // Exposing the guidance page to the web would turn it into a ready-made phishing template:

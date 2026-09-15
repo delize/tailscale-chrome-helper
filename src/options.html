@@ -88,12 +88,9 @@
         <div class="actions">
           <label class="inline">
             Situation
-            <select id="previewState">
-              <option value="tailscaleOff">Tailscale is not connected</option>
-              <option value="captivePortal">Network needs sign-in</option>
-              <option value="offline">Device is offline</option>
-              <option value="appDown">App is not responding</option>
-            </select>
+            <!-- Filled from STATES at runtime. A hardcoded list meant the two newest
+                 states, the ones least exercised, were the two nobody could preview. -->
+            <select id="previewState"></select>
           </label>
           <button type="button" class="secondary" id="previewBtn">Preview guidance page</button>
         </div>

@@ -10,7 +10,7 @@ have listed, it replaces Chrome's "This site can't be reached" page with guidanc
 names your organisation and explains how to reconnect. It then rechecks on its own and
 returns the user to the app once the connection is back.
 
-It distinguishes four situations rather than assuming the first one:
+It distinguishes six situations rather than assuming the first one:
 
 | State | Meaning |
 |---|---|
@@ -227,10 +227,13 @@ alarming without warning.
 
 ### Suggesting the right tailnet
 
-`suggestCorrectTailnet` is **off by default**, and deliberately so. Every other part of
-this extension acts only on the domains you listed in `watchedSuffixes`. This one has to
-look at tailnet hosts you did not list, because that is the whole point: spotting that
-someone typed a host on somebody else's tailnet.
+`suggestCorrectTailnet` is **off by default**, and deliberately so. It has to look at
+tailnet hosts you did not list, because that is the whole point: spotting that someone
+typed a host on somebody else's tailnet.
+
+It is one of **two** settings that act outside `watchedSuffixes`. The other is
+`recordUnwatchedHosts`, below. Both are off by default, and both are limited to `*.ts.net`
+hosts. With both off, the extension acts only on the domains you listed.
 
 When it is on, a failed navigation to any `*.ts.net` host that is not yours shows the
 corrected address and nothing else.
@@ -254,8 +257,12 @@ suggestion you cannot decline is an interception.
 `recordUnwatchedHosts` keeps a local tally so you can see that people keep trying to reach
 the wrong tailnet. Off by default.
 
+**This acts outside `watchedSuffixes`**, by design: it is counting hosts you did not list.
+It is independent of `suggestCorrectTailnet`, so turning that off does not turn this off.
+
 Only `*.ts.net` hosts are recorded, never ordinary browsing, and only navigations that
-failed. The extension never transmits the counts. See
+failed. Entries older than 90 days are dropped, at most 200 are kept, and turning the
+setting off deletes the record. The extension never transmits the counts. See
 [host-counts.md](host-counts.md) for the storage shape, which is a stable contract, and
 for how to read it with osquery.
 
@@ -324,7 +331,12 @@ default.
 | `pillGaveUp` | Status shown once the page has stopped checking, after `pollTimeoutMs`. |
 
 Available placeholders: `{company}`, `{host}`, `{error}`, `{tailnetName}`,
-`{exampleEmail}` and `{openApp}`. They are inserted as plain text, so markup in a value
+`{exampleEmail}`, `{openApp}` and `{suggestion}`.
+
+Two further markers apply only to `wrongTailnet.steps`. A step beginning `{suggestionOnly}`
+is dropped when there is no corrected address to show, and one beginning `{continueOnly}`
+is dropped when the continue button is hidden. Keep them if you rewrite those steps, or the
+copy will point at buttons that are not on the page. They are inserted as plain text, so markup in a value
 appears as literal characters rather than being rendered. `{openApp}` becomes the link
 described above, and disappears entirely when `openAppUrl` is unset.
 

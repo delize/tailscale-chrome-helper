@@ -4,8 +4,12 @@
 
 ## Data collected
 
-None. The extension has no analytics, no telemetry, no error reporting and no backend. It
-does not create an account or identify the user.
+None is sent anywhere. The extension has no analytics, no telemetry, no error reporting
+and no backend. It does not create an account or identify the user, and it makes no
+request that carries anything about you.
+
+One optional setting stores data locally, on your own device, and never sends it. See
+**Data stored** below.
 
 ## Data transmitted
 
@@ -31,20 +35,34 @@ never sent anywhere.
 
 ## Data stored
 
-Configuration only, in Chrome's extension storage:
+In Chrome's extension storage, on this device:
 
 - Settings an administrator applied through Chrome policy, which are read-only.
 - Settings the user entered on the options page, in `chrome.storage.sync`.
 - A per-tab count of failed attempts for a given address, in `sessionStorage`, which
   exists so a repeat failure can offer a support link. It is discarded when the tab closes.
+- **If an administrator turns on `recordUnwatchedHosts`**, which is off by default: a count
+  of failed navigations to tailnet hosts outside the configured list, in
+  `chrome.storage.local` under the key `unwatchedHosts`. Each entry is a hostname, a count,
+  and first-seen and last-seen timestamps. Only `*.ts.net` hostnames are recorded, never
+  ordinary browsing, and only navigations that failed. At most 200 are kept, entries older
+  than 90 days are discarded, and turning the setting off deletes the record. It is never
+  transmitted anywhere by this extension; it exists so a fleet tool on the same machine can
+  read it locally.
 
 ## Permissions
 
 `webNavigation` detects failed navigations. Chrome describes this permission to users as
 "Read your browsing history", and that description is accurate: the extension is told the
-address of every page you navigate to. It acts on none of them except navigations that
-fail against a domain your administrator listed, and it stores and transmits none of them,
-ever.
+address of every page you navigate to. It **transmits none of them, ever.**
+
+It acts on almost none of them. The exceptions, both off by default and both limited to
+navigations that failed against a `*.ts.net` host:
+
+- `suggestCorrectTailnet` lets it offer a correction when you land on a tailnet that is not
+  your organisation's. That means looking at tailnet hosts outside the configured list.
+- `recordUnwatchedHosts` counts those same failures locally, as described above. This is
+  the only setting that causes any address to be stored.
 
 What it cannot do is read the pages themselves. It holds no host permissions for any
 website, so it cannot see page content, cookies, form data or anything you type.

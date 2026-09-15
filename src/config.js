@@ -106,8 +106,6 @@ const BRANDED = {
   // being down: the device is missing, offline, or not shared, and the fixes differ.
   nameNotFound: {
     pill: 'Tailscale is connected',
-    pillProbing: 'Tailscale is connected, checking the name',
-    pillConnected: 'Found it, taking you there',
     pillGaveUp: 'That name still does not resolve',
     headline: 'That address is not resolving on your tailnet',
     lede: 'Tailscale is connected, but {host} does not resolve. Whatever is behind it may be offline, renamed, or not shared with you.',
@@ -116,7 +114,7 @@ const BRANDED = {
       // "device list" is Tailscale's own UI label, so it stays. Everywhere else the
       // destination could be a site, an API or a dashboard, and calling it a device
       // assumes something we do not know.
-      'Open Tailscale and look at the device list, or check the admin console. Confirm it is listed, online, and shared with you.',
+      'Open Tailscale and look through its device list for that name. If it is missing, or greyed out, that is the problem.',
       'If the address is right and it is online, then this is worth reporting.',
     ],
   },
@@ -126,16 +124,13 @@ const BRANDED = {
   // connected to your own. So a foreign-looking name is often perfectly legitimate, and
   // the page offers a correction without asserting the address is wrong.
   wrongTailnet: {
-    pill: 'Different tailnet',
-    pillProbing: 'Checking',
-    pillConnected: 'Taking you there',
-    pillGaveUp: 'Still not reachable',
+    pill: 'Tailscale is connected',
     headline: 'That address is on a different tailnet',
     lede: '{host} is not on your tailnet. That can be normal, since anything shared with you keeps the name of the tailnet it came from.',
     // Two choices, two buttons, one line each. The mechanics of cross-tailnet sharing are
     // not the user's problem: they are trying to get somewhere.
     steps: [
-      'If you meant something on your own tailnet, use the corrected address below.',
+      '{suggestionOnly}If you meant something on your own tailnet, use the corrected address below.',
       // The {continueOnly} marker drops the whole step when an administrator has turned
       // the button off, so the copy never points at something that is not there.
       '{continueOnly}If you did mean this address, continue anyway.',

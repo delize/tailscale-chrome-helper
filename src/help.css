@@ -633,6 +633,8 @@ a {
 .primary-link:hover { filter: brightness(1.08); }
 
 .secondary {
+  font: inherit;
+  cursor: pointer;
   padding: 10px 16px;
   border-radius: 8px;
   border: 1px solid var(--line);

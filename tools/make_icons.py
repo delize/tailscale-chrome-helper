@@ -39,7 +39,7 @@ def render(size):
     # a recessed dot is indistinguishable from a lit one, so the H stops reading. Small
     # sizes draw the same letter with solid strokes instead. This is the icon that appears
     # in the toolbar, so legibility wins over consistency there.
-    if size < 32:
+    if size <= 32:
         draw_strokes(pixels, size)
     else:
         draw_dots(pixels, size)
@@ -98,7 +98,7 @@ def write_png(path, pixels, size):
 
 
 if __name__ == "__main__":
-    for size in (16, 48, 128):
+    for size in (16, 32, 48, 128):
         target = ICONS / f"icon{size}.png"
         write_png(target, render(size), size)
         print(f"wrote {target.relative_to(ICONS.parent)} ({size}x{size})")

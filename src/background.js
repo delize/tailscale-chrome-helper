@@ -7,7 +7,7 @@
 
 import { loadConfig, watchConfig, matchesWatched } from './config.js';
 import { createSuppressor } from './suppression.js';
-import { recordUnwatchedHit } from './hostlog.js';
+import { recordUnwatchedHit, clearUnwatchedHits, isTailnetHost } from './hostlog.js';
 
 // Tailscale's Quad100 magic IP. It answers HTTP only while the client is connected, so
 // it doubles as a connectivity probe.
@@ -122,9 +122,34 @@ export function suggestOnTailnet(rawUrl, suffixes) {
   return labels.slice(0, -1).join('.') + '.' + tailnets[0];
 }
 
-// Hosts the user chose to continue to anyway. In memory, so it lasts the session and no
-// longer: a dismissal means "I meant this, now", not a permanent preference.
-const dismissed = new Set();
+// Hosts the user chose to continue to anyway. chrome.storage.session, not a module-level
+// Set: MV3 kills an idle worker after about thirty seconds, so in-memory state meant the
+// user was re-interposed on a host they had explicitly said they meant, often within a
+// minute. Session storage is memory-backed and cleared on browser restart, which is the
+// lifetime the docs promise.
+const DISMISSED_KEY = 'dismissedHosts';
+
+async function isDismissed(host) {
+  try {
+    const items = await chrome.storage.session.get(DISMISSED_KEY);
+    return Array.isArray(items?.[DISMISSED_KEY]) && items[DISMISSED_KEY].includes(host);
+  } catch {
+    return false;
+  }
+}
+
+async function rememberDismissal(host) {
+  try {
+    const items = await chrome.storage.session.get(DISMISSED_KEY);
+    const list = Array.isArray(items?.[DISMISSED_KEY]) ? items[DISMISSED_KEY] : [];
+    if (list.includes(host)) return;
+    // Bounded, so a crafted or looping caller cannot grow it without limit.
+    const next = [...list, host].slice(-100);
+    await chrome.storage.session.set({ [DISMISSED_KEY]: next });
+  } catch {
+    // A dismissal that cannot be stored is a re-prompt, not a failure worth surfacing.
+  }
+}
 
 export async function classify(config, error) {
   if (await tailscaleIsUp(config)) {
@@ -174,24 +199,24 @@ chrome.webNavigation.onErrorOccurred.addListener(async (details) => {
   const watched = matchesWatched(details.url, config.watchedSuffixes);
   let suggestion = null;
   if (!watched) {
-    // Recorded before the opt-in checks below, so the count is useful even to an
-    // administrator who has not turned the suggestion on. Tailnet hosts only, and it
-    // stays on the device.
-    if (config.recordUnwatchedHosts) await recordUnwatchedHit(details.url);
-
-    // The only case where this extension acts outside the configured domains, and only to
-    // offer a correction. Opt-in, and silent for anyone who has not turned it on.
+    // One of two settings that act outside the configured domains, the other being the
+    // counter below. Opt-in, and silent for anyone who has not turned it on.
     if (!config.suggestCorrectTailnet) return;
     suggestion = suggestOnTailnet(details.url, config.watchedSuffixes);
     if (!suggestion) return;
     try {
-      if (dismissed.has(new URL(details.url).hostname.toLowerCase())) return;
+      if (await isDismissed(new URL(details.url).hostname.toLowerCase())) return;
     } catch {
       return;
     }
   }
 
   if (suppressor.shouldSuppress(details.tabId, details.url, config.suppressMs)) return;
+
+  // After the suppressor, so a Back-button bounce is not counted as a second attempt. The
+  // number is a fleet signal an administrator acts on, so inflating it matters. Still
+  // independent of suggestCorrectTailnet: this runs whether or not that is on.
+  if (!watched && config.recordUnwatchedHosts) await recordUnwatchedHit(details.url);
 
   if (suggestion) {
     // No probing. The correction is worth offering either way, and the copy does not
@@ -236,8 +261,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   if (message.type === 'dismiss-suggestion') {
     // The user said they meant that address. Stop interposing for it this session.
-    if (typeof message.host === 'string') dismissed.add(message.host.toLowerCase());
-    sendResponse(true);
+    // Validated like any other input: only a real tailnet host can be dismissed, so this
+    // cannot be used to suppress guidance for arbitrary domains.
+    const host = typeof message.host === 'string' ? message.host.toLowerCase() : '';
+    if (_sender.id === chrome.runtime.id && isTailnetHost(host)) {
+      rememberDismissal(host).then(() => sendResponse(true), () => sendResponse(false));
+      return true;
+    }
+    sendResponse(false);
     return true;
   }
   if (message.type === 'classify') {
@@ -248,4 +279,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 });
 
-watchConfig();
+// Disabling a setting that records where someone tried to go should delete what it
+// recorded, not merely stop appending to it.
+let recordingWasOn = null;
+watchConfig(({ config }) => {
+  if (recordingWasOn === true && config.recordUnwatchedHosts === false) clearUnwatchedHits();
+  recordingWasOn = config.recordUnwatchedHosts;
+});
+loadConfig().then(({ config }) => {
+  recordingWasOn = config.recordUnwatchedHosts;
+});

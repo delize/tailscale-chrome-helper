@@ -25,9 +25,17 @@ const el = (id) => document.getElementById(id);
 // target. It still reaches the headline, so it is shaped and capped like anything else.
 const HOSTNAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
 
+// Reject, never truncate. Slicing an over-long hostname does not sanitise it, it produces
+// a DIFFERENT valid hostname at an offset the attacker chooses: pad a suggestion so the
+// admin's own tailnet falls past the limit and it is cut off, leaving the attacker's
+// domain as the result. Length is now a rejection, not a repair.
+const MAX_HOST_LENGTH = 253; // RFC 1035 limit for a fully qualified name.
+
 function cleanHostParam(value) {
   if (typeof value !== 'string') return '';
-  const host = value.trim().toLowerCase().slice(0, 120).replace(/\.$/, '');
+  const host = value.trim().toLowerCase().replace(/\.$/, '');
+  if (host.length > MAX_HOST_LENGTH) return '';
+  if (host.split('.').some((label) => label.length > 63)) return '';
   return HOSTNAME.test(host) ? host : '';
 }
 
@@ -40,10 +48,11 @@ function parseTarget(suffixes) {
     const url = new URL(raw);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
     if (matchesWatched(url.href, suffixes)) return url;
-    // The wrongTailnet state exists precisely because the host is not on a watched
-    // suffix, so validating against those alone would reject the address we are there to
-    // talk about. Any tailnet host is still a narrow allowlist, and it is the address the
-    // user typed themselves.
+    // Only the wrongTailnet page may name a host outside the watched suffixes, because
+    // that state exists precisely because the host is not on one. Everywhere else this
+    // stays as narrow as the administrator configured it. The comment used to justify the
+    // widening by that state while the code applied it unconditionally.
+    if (params.get('state') !== 'wrongTailnet') return null;
     return matchesWatched(url.href, ['ts.net']) ? url : null;
   } catch {
     return null;
@@ -110,7 +119,14 @@ async function main() {
   // page appearing at once and appearing after a two second stare at Chrome's error page.
   // Supplied by the worker for the wrongTailnet state. Validated the same way as the
   // target: it arrives in a URL the user can edit, and it becomes an href.
-  const suggestion = cleanHostParam(params.get('suggestion'));
+  const rawSuggestion = cleanHostParam(params.get('suggestion'));
+  // Checking the shape of the suggestion was the original mistake. The thing that is true
+  // of every legitimate suggestion is that it sits on a watched suffix, because that is
+  // how the worker builds it. Anything else is not ours, however well formed it looks.
+  const suggestion =
+    rawSuggestion && matchesWatched(`https://${rawSuggestion}/`, config.watchedSuffixes)
+      ? rawSuggestion
+      : '';
 
   const declared = params.get('state');
   let state = STATES.includes(declared) ? declared : 'tailscaleOff';
@@ -131,6 +147,10 @@ async function main() {
 
   function paint(name) {
     const copy = copyFor(name);
+    // Computed up front: the steps are rendered before the buttons are wired, and a step
+    // must not survive the control it refers to.
+    const suggesting = name === 'wrongTailnet' && Boolean(suggestion);
+    const continueShown = suggesting && config.showContinueAnyway;
     el('pill').dataset.state = PILL_TONE[name] || 'bad';
     el('pillText').textContent = applyTokens(copy.pill, tokens);
     renderTemplate(el('headline'), copy.headline, tokens);
@@ -142,8 +162,16 @@ async function main() {
       // A step marked {continueOnly} is about the Continue anyway button, so it goes when
       // the button does. Pointing at a control that is not there is how the support link
       // used to behave, and it reads as a bug.
-      if (rawStep.includes('{continueOnly}') && !config.showContinueAnyway) continue;
-      const step = rawStep.replace('{continueOnly}', '');
+      // A step may be marked as belonging to a control. If that control is not on the page,
+      // the step goes with it, so the copy never points at something that is not there.
+      // Scoped to wrongTailnet: an admin who pastes this text into another state would
+      // otherwise silently lose a step. replaceAll, because a duplicated marker used to
+      // leak the literal text onto the page.
+      if (name === 'wrongTailnet') {
+        if (rawStep.includes('{continueOnly}') && !continueShown) continue;
+        if (rawStep.includes('{suggestionOnly}') && !suggesting) continue;
+      }
+      const step = rawStep.replaceAll('{continueOnly}', '').replaceAll('{suggestionOnly}', '');
       const li = document.createElement('li');
       const text = applyTokens(step, tokens);
       // Two things get lifted out of the prose: "toggle", the one word users scan for,
@@ -201,9 +229,14 @@ async function main() {
     setLink(el('askIt'), null, escalate ? config.supportUrl : '', config.supportLabel);
     // A button that appears out of nowhere reads as a glitch. Say why it is there.
     const askItNote = el('askItNote');
-    const earned = escalate && config.supportUrl && attemptsReached && name !== 'appDown';
+    // wrongTailnet excluded: nothing has failed there, the user typed an address on
+    // another tailnet, which the page's own copy calls normal.
+    const earned =
+      config.supportUrl && attemptsReached && name !== 'appDown' && name !== 'wrongTailnet';
+    // supportLabel is a button label, often imperative ("Contact the Service Desk"), so it
+    // cannot be used as a noun. Count is spelled to avoid "1 times".
     askItNote.textContent = earned
-      ? `This has failed ${attempts} times, so you can hand it to ${config.supportLabel}.`
+      ? `This has not worked ${attempts === 1 ? 'once' : `${attempts} times`}, so it may be worth asking for help.`
       : '';
     askItNote.hidden = !earned;
 
@@ -221,21 +254,22 @@ async function main() {
 
     // On wrongTailnet the corrected address is the answer, so it leads. Continue anyway
     // sits beside it, because a suggestion the user cannot decline is an interception.
-    const suggesting = name === 'wrongTailnet' && suggestion;
     setLink(
       el('goSuggested'),
       null,
       suggesting ? `https://${suggestion}/` : '',
       suggesting ? suggestion : ''
     );
-    el('continueAnyway').hidden = !suggesting || !config.showContinueAnyway;
+    el('continueAnyway').hidden = !continueShown;
     // Nothing on this state is about the connection, so the illustration and the retry
     // would both be misleading.
     if (name === 'wrongTailnet') {
       el('illustration').hidden = true;
       el('caption').hidden = true;
       el('columns').classList.add('single');
-      el('retry').hidden = true;
+      // Retry stays when there is no suggestion to offer, otherwise the page is two
+      // instructions pointing at two buttons that do not exist, with nothing clickable.
+      el('retry').hidden = suggesting;
       setLink(el('download'), null, '', '');
     } else {
       el('retry').hidden = false;
@@ -379,7 +413,13 @@ async function main() {
   // can read the response body, which this page cannot.
   async function currentState() {
     try {
-      const result = await chrome.runtime.sendMessage({ type: 'classify' });
+      // Without the error the worker cannot tell a name that does not resolve from an app
+      // that does not answer, so nameNotFound was unreachable. This was omitted once
+      // already by an edit that silently did not apply; the test asserts it is sent.
+      const result = await chrome.runtime.sendMessage({
+        type: 'classify',
+        error: tokens.error,
+      });
       if (STATES.includes(result)) return result;
     } catch {
       // Worker asleep or unreachable, fall through.
@@ -421,6 +461,11 @@ async function main() {
 
   async function tick() {
     if (ticking || redirecting || gaveUp) return;
+    // Terminal. The worker asserts this state from the URL and cannot re-derive it, so a
+    // poll would answer with an ordinary connectivity verdict, repaint the page, hide both
+    // buttons, and then navigate the user to the foreign host with no click. Nothing here
+    // is waiting on connectivity anyway: it is a naming problem.
+    if (state === 'wrongTailnet') return;
     // Nobody is looking at a background tab, and a probe every few seconds there is pure
     // waste that also keeps the worker awake.
     if (document.hidden) return;
@@ -466,6 +511,8 @@ async function main() {
     el('details').textContent = 'Preview. This page is not checking your connection.';
     return;
   }
+
+  if (state === 'wrongTailnet') return;
 
   tick();
   const poller = setInterval(tick, config.pollIntervalMs);

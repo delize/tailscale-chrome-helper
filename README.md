@@ -79,6 +79,10 @@ npm run preview
 # http://127.0.0.1:8731/tools/preview.html?state=tailscaleOff
 ```
 
+The preview server sends `no-store` deliberately. A plain static server lets Chrome cache
+ES modules between edits, so the page runs a mix of old and new code and a change looks
+like it silently did nothing.
+
 The harness defaults to an **unconfigured** install, because that is the path where
 missing copy surfaces as a literal `undefined` and where the neutral wording applies. Pass
 config explicitly to see a configured tenant:
@@ -90,6 +94,9 @@ config explicitly to see a configured tenant:
 | `tailnet` | sets `tailnetName` in the illustration |
 | `domain` | sets `emailDomain`, rendering `you@domain` |
 | `support` | sets `supportUrl`, revealing the escalation button |
+| `accent` | sets `accentColor`, e.g. `%234a63d8` (URL-encoded `#`) |
+| `banner` | sets `bannerDataUrl`, a URL-encoded `data:image/` URI |
+| `logo` | sets `logoDataUrl`, same encoding |
 | `suffixes` | comma-separated `watchedSuffixes` |
 | `target` | the failed URL. Its host is trusted as a suffix so any host previews |
 | `error` | the error string in the details footer |
@@ -120,9 +127,13 @@ fields, and the rejected-value report, because those read `chrome.storage.manage
 not need a Google Admin console:
 
 ```sh
-python3 tools/dev_policy.py                      # sample tenant
-python3 tools/dev_policy.py --config my.json     # your own settings
+cp dev-config.example.json dev-config.json       # then edit it
+python3 tools/dev_policy.py --config dev-config.json
+python3 tools/dev_policy.py                      # or just use the built-in sample
 ```
+
+`dev-config.json` is gitignored, because a real one carries your organisation's name,
+domain and support address. Keep test tenants out of commits.
 
 It writes a policy file into `dist-policy/` and prints the command to install it. It never
 installs anything itself, since that needs administrator rights. It also refuses to
@@ -136,6 +147,16 @@ there, and is reported on the options page instead.
 `tools/check.mjs` fails the build if a config key exists in code but not in the
 administrator-facing schema, or if the permission set changes. Both are drift that would
 otherwise be noticed only after a release.
+
+## Policy examples
+
+Ready-to-use blobs for each deployment path live in [examples/](examples/): the flat JSON
+for the Admin console (minimal and complete), a macOS configuration profile, a Windows
+`.reg`, and a Linux managed-policy file. `examples/README.md` explains which to use and
+how to tell whether it applied.
+
+The complete example is checked against `DEFAULTS` on every build, so it cannot fall
+behind the settings the extension actually supports.
 
 ## Layout
 

@@ -57,6 +57,16 @@
       "description": "Shown to users who have no Tailscale client at all. Defaults to the official download page.",
       "type": "string"
     },
+    "openAppUrl": {
+      "title": "Open Tailscale link",
+      "description": "Link offered to a user who cannot find the Tailscale icon. Defaults to tailscale://connect, which launches the installed client after Chrome asks permission. It opens the app only, it does not connect. Accepts a tailscale: or https: URL, so a self-service portal can be used instead. Leave empty to hide the link.",
+      "type": "string"
+    },
+    "openAppLabel": {
+      "title": "Open Tailscale link label",
+      "description": "Text of that link. Defaults to 'Open Tailscale'.",
+      "type": "string"
+    },
     "connectHelpUrl": {
       "title": "Internal runbook link",
       "description": "Optional link to your own connection instructions, shown alongside the built-in steps.",
@@ -77,6 +87,16 @@
       "description": "Optional logo as a data:image/ URI. Remote URLs are rejected so the page never makes an outbound request.",
       "type": "string"
     },
+    "bannerDataUrl": {
+      "title": "Banner image",
+      "description": "Optional banner shown across the top of the page, as a data:image/ URI. Remote URLs are rejected so the page never makes an outbound request, which matters because it is shown to users whose network is already broken. Maximum 1 MB.",
+      "type": "string"
+    },
+    "accentColor": {
+      "title": "Accent colour",
+      "description": "Colour of the primary button and links, as a hex value such as #4a63d8. Only 3 or 6 digit hex is accepted. Pick something readable against a dark background, since the page is dark by design.",
+      "type": "string"
+    },
     "probeTimeoutMs": {
       "title": "Probe timeout (ms)",
       "description": "How long to wait for the local Tailscale check before calling it down. Default 1500.",
@@ -90,6 +110,11 @@
     "pollIntervalMs": {
       "title": "Poll interval (ms)",
       "description": "How often the guidance page rechecks connectivity. Default 2500.",
+      "type": "integer"
+    },
+    "pollTimeoutMs": {
+      "title": "Give up after (ms)",
+      "description": "How long the guidance page keeps checking before it stops and says so. Default 120000, two minutes. Retrying forever keeps the service worker resident and tells the user success is imminent when it may not be.",
       "type": "integer"
     },
     "suppressMs": {
@@ -121,6 +146,10 @@
             },
             "pillConnected": {
               "description": "Status label shown just before the page returns the user to the app.",
+              "type": "string"
+            },
+            "pillGaveUp": {
+              "description": "Status shown once the page has stopped checking.",
               "type": "string"
             },
             "headline": {
@@ -156,6 +185,10 @@
               "description": "Status label shown just before the page returns the user to the app.",
               "type": "string"
             },
+            "pillGaveUp": {
+              "description": "Status shown once the page has stopped checking.",
+              "type": "string"
+            },
             "headline": {
               "description": "Main heading. Placeholders are substituted as plain text.",
               "type": "string"
@@ -189,6 +222,10 @@
               "description": "Status label shown just before the page returns the user to the app.",
               "type": "string"
             },
+            "pillGaveUp": {
+              "description": "Status shown once the page has stopped checking.",
+              "type": "string"
+            },
             "headline": {
               "description": "Main heading. Placeholders are substituted as plain text.",
               "type": "string"
@@ -220,6 +257,10 @@
             },
             "pillConnected": {
               "description": "Status label shown just before the page returns the user to the app.",
+              "type": "string"
+            },
+            "pillGaveUp": {
+              "description": "Status shown once the page has stopped checking.",
               "type": "string"
             },
             "headline": {

@@ -24,6 +24,7 @@
         </symbol>
       </svg>
 
+      <img class="banner" id="banner" alt="" hidden />
       <div class="pill" id="pill">
         <span class="pill-dot" id="pillDot"></span>
         <span id="pillText"></span>
@@ -33,87 +34,101 @@
       <h1 id="headline"></h1>
       <p class="lede" id="lede"></p>
 
-      <!-- Illustration of the Tailscale client, rebuilt in markup so the account row can
-           carry the configured tenant rather than a baked-in screenshot. -->
-      <section class="illustration" id="illustration" aria-label="Where to find Tailscale on your device">
-        <div class="menubar">
-          <span class="glyph glyph-square"></span>
-          <svg class="glyph" viewBox="0 0 16 12" aria-hidden="true">
-            <path d="M1 4.2a10 10 0 0 1 14 0M3.6 7a6.4 6.4 0 0 1 8.8 0" fill="none"
-                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-            <circle cx="8" cy="10" r="1.1" fill="currentColor" />
-          </svg>
-          <span class="glyph glyph-active"><svg class="mark bright" aria-hidden="true"><use href="#tsmark" /></svg></span>
-          <span class="clock">13:37</span>
-        </div>
-
-        <div class="illustration-body">
-          <div class="icon-key">
-            <p class="icon-key-title">How the icon looks</p>
-            <div class="tiles">
-              <figure>
-                <div class="tile dim"><svg class="mark faint" aria-hidden="true"><use href="#tsmark" /></svg></div>
-                <figcaption>Disconnected</figcaption>
-              </figure>
-              <figure>
-                <div class="tile"><svg class="mark bright" aria-hidden="true"><use href="#tsmark" /></svg></div>
-                <figcaption>Connected</figcaption>
-              </figure>
-            </div>
+      <!-- Two columns on a wide screen. The single column overflowed a 14 inch
+           laptop by around 200px, which put the retry button below the fold: the one
+           control the page exists to offer. -->
+      <div class="columns" id="columns">
+        <div class="col-visual">
+        <!-- Illustration of the Tailscale client, rebuilt in markup so the account row can
+             carry the configured tenant rather than a baked-in screenshot. -->
+        <section class="illustration" id="illustration" aria-label="Where to find Tailscale on your device">
+          <div class="menubar">
+            <!-- Third-party items sit left of the system icons on macOS, which is where a
+                 user will actually be looking for the Tailscale icon. -->
+            <span class="glyph glyph-active"><svg class="mark bright" aria-hidden="true"><use href="#tsmark" /></svg></span>
+            <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true">
+              <circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="1.5" />
+              <path d="M10.4 10.4 L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+            <svg class="glyph" viewBox="0 0 16 12" aria-hidden="true">
+              <path d="M1 4.2a10 10 0 0 1 14 0M3.6 7a6.4 6.4 0 0 1 8.8 0" fill="none"
+                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <circle cx="8" cy="10" r="1.1" fill="currentColor" />
+            </svg>
+            <span class="clock">13:37</span>
           </div>
 
-          <div class="menu" id="menu">
-            <div class="menu-head" id="menuHead">
-              <div>
-                <p class="menu-title">Tailscale</p>
-                <p class="menu-sub" id="menuState">
-                  <span class="state-off">Not Connected</span>
-                  <span class="state-on">Connected</span>
-                </p>
+          <div class="illustration-body">
+            <div class="icon-key">
+              <p class="icon-key-title">How the icon looks</p>
+              <div class="tiles">
+                <figure>
+                  <div class="tile dim"><svg class="mark faint" aria-hidden="true"><use href="#tsmark" /></svg></div>
+                  <figcaption>Disconnected</figcaption>
+                </figure>
+                <figure>
+                  <div class="tile"><svg class="mark bright" aria-hidden="true"><use href="#tsmark" /></svg></div>
+                  <figcaption>Connected</figcaption>
+                </figure>
               </div>
-              <span class="toggle" id="menuToggle" aria-hidden="true"><span class="knob"></span></span>
-              <svg class="cursor" viewBox="0 0 12 16" aria-hidden="true">
-                <path d="M1 1 L1 13 L4.2 10.2 L6.3 14.6 L8.4 13.6 L6.3 9.3 L10.5 9.3 Z"
-                      fill="#fff" stroke="rgba(0,0,0,.5)" stroke-width="0.9"
-                      stroke-linejoin="round" />
-              </svg>
             </div>
-            <hr />
-            <div class="menu-row">
-              <span class="avatar" id="menuAvatar" aria-hidden="true"></span>
-              <div class="menu-account">
-                <p class="menu-email" id="menuEmail"></p>
-                <p class="menu-tailnet" id="menuTailnet"></p>
+
+            <div class="menu" id="menu">
+              <div class="menu-head" id="menuHead">
+                <div>
+                  <p class="menu-title">Tailscale</p>
+                  <p class="menu-sub" id="menuState">
+                    <span class="state-off">Not Connected</span>
+                    <span class="state-on">Connected</span>
+                  </p>
+                </div>
+                <span class="toggle" id="menuToggle" aria-hidden="true"><span class="knob"></span></span>
+                <svg class="cursor" viewBox="0 0 12 16" aria-hidden="true">
+                  <path d="M1 1 L1 13 L4.2 10.2 L6.3 14.6 L8.4 13.6 L6.3 9.3 L10.5 9.3 Z"
+                        fill="#fff" stroke="rgba(0,0,0,.5)" stroke-width="0.9"
+                        stroke-linejoin="round" />
+                </svg>
               </div>
-              <span class="chevron" aria-hidden="true"></span>
+              <hr />
+              <div class="menu-row">
+                <span class="avatar" id="menuAvatar" aria-hidden="true"></span>
+                <div class="menu-account">
+                  <p class="menu-email" id="menuEmail"></p>
+                  <p class="menu-tailnet" id="menuTailnet"></p>
+                </div>
+                <span class="chevron" aria-hidden="true"></span>
+              </div>
+              <hr />
+              <div class="menu-row simple"><span>Settings…</span><span class="shortcut">⌘,</span></div>
+              <div class="menu-row simple"><span>Open Tailscale</span></div>
+              <hr />
+              <div class="menu-row simple"><span>Quit</span><span class="shortcut">⌘Q</span></div>
+              <hr />
+              <p class="menu-managed" id="menuManaged"></p>
             </div>
-            <hr />
-            <div class="menu-row simple"><span>Settings…</span><span class="shortcut">⌘,</span></div>
-            <div class="menu-row simple"><span>Open Tailscale</span></div>
-            <hr />
-            <div class="menu-row simple"><span>Quit</span><span class="shortcut">⌘Q</span></div>
-            <hr />
-            <p class="menu-managed" id="menuManaged"></p>
           </div>
+        </section>
+
+        <p class="caption" id="caption">
+          Click the Tailscale icon, then flip the toggle on. On Windows the icon lives in the
+          system tray, bottom right.
+        </p>
         </div>
-      </section>
+        <div class="col-guide">
 
-      <p class="caption" id="caption">
-        Click the Tailscale icon, then flip the toggle on. On Windows the icon lives in the
-        system tray, bottom right.
-      </p>
+        <ol class="steps" id="steps"></ol>
 
-      <ol class="steps" id="steps"></ol>
+        <p class="runbook" id="runbookWrap" hidden>
+          <a id="runbook" rel="noreferrer">Our connection guide</a>
+        </p>
 
-      <p class="runbook" id="runbookWrap" hidden>
-        <a id="runbook" rel="noreferrer">Our connection guide</a>
-      </p>
-
-      <div class="actions">
-        <button type="button" class="primary" id="retry">Try again now</button>
-        <a class="secondary" id="askIt" hidden rel="noreferrer"></a>
-        <a class="secondary" id="portal" hidden rel="noreferrer">Open the sign-in page</a>
-        <a class="secondary" id="download" hidden rel="noreferrer">Install Tailscale</a>
+        <div class="actions">
+          <button type="button" class="primary" id="retry">Try again now</button>
+          <a class="secondary" id="askIt" hidden rel="noreferrer"></a>
+          <a class="secondary" id="portal" hidden rel="noreferrer">Open the sign-in page</a>
+          <a class="secondary" id="download" hidden rel="noreferrer">Install Tailscale</a>
+        </div>
+        </div>
       </div>
 
       <p class="details" id="details"></p>

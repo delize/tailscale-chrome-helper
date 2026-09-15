@@ -6,3 +6,4 @@ dist/
 *.pem
 dist-policy/
 dev-config.json
+!dev-config.example.json

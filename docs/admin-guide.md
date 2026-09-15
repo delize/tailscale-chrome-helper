@@ -120,15 +120,21 @@ Policy changes apply without a browser restart.
 | `emailDomain` | string | unset | Renders the example account as `you@acme.com`. Illustrative only. |
 | `supportUrl` | string | unset | Escalation link. `https`, `mailto` or `slack` only. Hidden when unset. |
 | `supportLabel` | string | `Ask IT` | Text on the escalation button. |
+| `checkingLabel` | string | `Checking your connection` | Status shown while the first connection check is still running. |
 | `showInstallLink` | boolean | `true` | Set false where Tailscale is deployed by MDM, so users are not told to install it themselves. |
 | `tailscaleDownloadUrl` | string | Tailscale's download page | Offered only when Tailscale is not running, and only if `showInstallLink` is true. |
+| `openAppUrl` | string | unset | Link offered when the icon cannot be found. Accepts `tailscale:` or `https:`. Off by default, see below. |
+| `openAppLabel` | string | `Open Tailscale` | Text of that link. |
 | `connectHelpUrl` | string | unset | Link to your own runbook. |
 | `controlUrl` | string | `http://connectivitycheck.gstatic.com/generate_204` | Captive portal probe. Must be **http**, see below. |
 | `portalUrl` | string | `http://neverssl.com/` | Plaintext page offered as a button to force a portal sign-in screen. |
-| `logoDataUrl` | string | unset | `data:image/...` only. Remote URLs are rejected. |
+| `logoDataUrl` | string | unset | `data:image/...` only, max 256 KB. Remote URLs are rejected. |
+| `bannerDataUrl` | string | unset | Banner across the top of the card. `data:image/...` only, max 1 MB. |
+| `accentColor` | string | unset | Button and link colour, 3 or 6 digit hex such as `#4a63d8`. |
 | `probeTimeoutMs` | integer | `1500` | Clamped to 200 to 30000. |
 | `targetTimeoutMs` | integer | `4000` | Clamped to 200 to 30000. |
 | `pollIntervalMs` | integer | `2500` | Clamped to 500 to 60000. |
+| `pollTimeoutMs` | integer | `120000` | How long the page keeps checking before it stops and says so. Clamped to 10000 to 3600000. |
 | `suppressMs` | integer | `8000` | Clamped to 0 to 120000. |
 | `askItAfterAttempts` | integer | `2` | Clamped to 1 to 20. |
 | `strings` | object | unset | Copy overrides, see below. |
@@ -145,6 +151,32 @@ typo never leaves the extension watching nothing silently.
 
 Leaving this unset watches all of `ts.net`, which is reasonable for a small deployment but
 means the page also appears for tailnets that are not yours.
+
+### Branding
+
+Three keys control appearance. All of them are optional and the page looks deliberate
+without any of them.
+
+```json
+{
+  "accentColor": "#4a63d8",
+  "logoDataUrl": "data:image/png;base64,iVBORw0KGgo...",
+  "bannerDataUrl": "data:image/png;base64,iVBORw0KGgo..."
+}
+```
+
+Images must be `data:` URIs rather than URLs. That is not an arbitrary restriction: this
+page is shown to someone whose network is already failing, so anything it had to fetch
+would be the thing most likely to be missing. Encode the file rather than linking it.
+
+```sh
+# macOS or Linux
+printf 'data:image/png;base64,%s' "$(base64 -i logo.png | tr -d '\n')"
+```
+
+`accentColor` accepts plain hex only, not `rgb()` or named colours. The page is dark, so
+pick something that reads against a dark background. The rest of the palette is fixed,
+which keeps a mis-set colour from producing an unreadable page.
 
 ### Identity providers and SSO
 
@@ -165,6 +197,28 @@ Without that, a failed navigation to the IdP falls outside the watch list and th
 gets Chrome's plain error page. Do not add a public IdP such as `okta.com` this way. It is
 reachable without Tailscale, so a failure there is a real outage and the guidance would be
 wrong.
+
+### Launching the client, and why it is off by default
+
+`openAppUrl` can put a link in the first step for users who cannot find the Tailscale icon.
+It is **unset by default**, and that is deliberate.
+
+Tailscale registers the `tailscale://` scheme, so it looks like an obvious way to open the
+client. It is not. The scheme serves signed deeplinks only. Both `tailscale://` and
+`tailscale://connect` launch the app, which then rejects them with:
+
+> The signing request could not be authenticated: Unable to verify deeplink
+
+Tested on macOS, both forms. There is no unsigned URL that simply opens the app, so the
+default is no link rather than a button that produces an error dialog.
+
+Set it only if you have something that works in your environment, such as an MDM
+self-service page that launches or repairs the client. An `https:` URL is usually the
+right shape. If you do set a `tailscale:` URL, test the whole path on a real device first.
+
+Worth knowing either way: Chrome's permission prompt names the requesting origin, and for
+an extension that is the raw extension ID rather than a friendly name. Users find that
+alarming without warning.
 
 ### Captive portals, and why the probe is plaintext
 
@@ -203,9 +257,27 @@ default.
 }
 ```
 
-Available placeholders: `{company}`, `{host}`, `{error}`, `{tailnetName}` and
-`{exampleEmail}`. They are inserted as plain text, so markup in a value appears as
-literal characters rather than being rendered.
+Each state accepts these fields. All are optional; anything you leave out keeps its
+default.
+
+| Field | Shown |
+|---|---|
+| `pill` | The status chip at the top of the page. |
+| `headline` | The main heading. |
+| `lede` | The sentence under the heading. |
+| `steps` | The numbered instructions, as an array of strings. |
+| `pillProbing` | Status while the page is checking whether the app answers. `appDown` only. |
+| `pillConnected` | Status shown just before the user is returned to the app. `appDown` only. |
+| `pillGaveUp` | Status shown once the page has stopped checking, after `pollTimeoutMs`. |
+
+Available placeholders: `{company}`, `{host}`, `{error}`, `{tailnetName}`,
+`{exampleEmail}` and `{openApp}`. They are inserted as plain text, so markup in a value
+appears as literal characters rather than being rendered. `{openApp}` becomes the link
+described above, and disappears entirely when `openAppUrl` is unset.
+
+One field is emphasised automatically: the word **toggle** anywhere in a step is bolded,
+because it is the word users scan for. That is an English-language assumption, so if you
+translate the copy the emphasis will not follow.
 
 The default heading reads "This app is on {company}'s private network". That possessive
 reads badly for a name ending in s, and does not translate. Override `headline` in that

@@ -126,18 +126,25 @@ def main() -> int:
                     "ShowHomeButton": True,
                 }
             )
-            # Control: the same mechanism applied to a Web Store extension.
-            payloads.append(
-                {
-                    "PayloadType": "com.google.Chrome.extensions.ddkjiahejlhfcafbddmgiahcphecmpfh",
-                    "PayloadVersion": 1,
-                    "PayloadIdentifier": "org.local.tailnet-helper.dev.ublock",
-                    "PayloadUUID": str(uuid.uuid4()),
-                    "PayloadDisplayName": "uBlock Origin Lite control",
-                    "PayloadEnabled": True,
-                    "disableFirstRunPage": True,
-                }
-            )
+            # A second extension would go here, as its own payload keyed by its own ID.
+            # This shape was used as a control while working out that macOS wants a
+            # preference domain per extension rather than the 3rdparty key, and it is left
+            # as a worked example. Uncomment and substitute a real extension ID and one of
+            # its documented settings to push policy to something else in the same profile.
+            # Note it writes policy to an extension you may not own, so only do this
+            # deliberately and on a machine you are testing on.
+            #
+            # payloads.append(
+            #     {
+            #         "PayloadType": "com.google.Chrome.extensions.EXTENSION_ID_HERE",
+            #         "PayloadVersion": 1,
+            #         "PayloadIdentifier": "org.local.tailnet-helper.dev.other",
+            #         "PayloadUUID": str(uuid.uuid4()),
+            #         "PayloadDisplayName": "Another extension",
+            #         "PayloadEnabled": True,
+            #         "someSettingFromItsSchema": True,
+            #     }
+            # )
 
         profile = {
             "PayloadType": "Configuration",

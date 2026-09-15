@@ -1,0 +1,9 @@
+{
+  "companyName": "Acme",
+  "watchedSuffixes": ["acme.ts.net"],
+  "tailnetName": "Acme",
+  "emailDomain": "acme.com",
+  "supportUrl": "https://help.acme.com/tailscale",
+  "supportLabel": "Ask IT",
+  "showInstallLink": false
+}

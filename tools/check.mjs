@@ -68,6 +68,44 @@ for (const state of STATES) {
   if (missing.length) problems.push(`schema strings.${state} is missing ${missing.join(', ')}`);
 }
 
+// Every setting an administrator can set must be documented, or they cannot discover it.
+// The schema descriptions cover someone who unpacks the CRX; the admin guide covers
+// everyone else. This was drifting: checkingLabel and the transitional pills shipped
+// undocumented because nothing compared the two.
+const guide = readFileSync(new URL('../docs/admin-guide.md', import.meta.url), 'utf8');
+const documented = new Set(
+  [...guide.matchAll(/^\|\s*`([A-Za-z0-9_]+)`\s*\|/gm)].map((m) => m[1])
+);
+for (const key of defaultKeys) {
+  if (!documented.has(key)) {
+    problems.push(`DEFAULTS has "${key}" but docs/admin-guide.md does not document it`);
+  }
+}
+
+// The same for the per-state copy fields, which are a second, separate surface.
+const COPY_FIELDS_DOCUMENTED = ['pill', 'headline', 'lede', 'steps', 'pillProbing', 'pillConnected'];
+for (const field of COPY_FIELDS_DOCUMENTED) {
+  if (!documented.has(field)) {
+    problems.push(`copy field "${field}" is not documented in docs/admin-guide.md`);
+  }
+}
+
+// The full policy example has to stay complete, or an administrator copying it silently
+// inherits a config missing the newest settings.
+const fullExample = JSON.parse(
+  readFileSync(new URL('../examples/admin-console-full.json', import.meta.url), 'utf8')
+);
+for (const key of defaultKeys) {
+  if (!(key in fullExample)) {
+    problems.push(`examples/admin-console-full.json is missing "${key}"`);
+  }
+}
+for (const key of Object.keys(fullExample)) {
+  if (!defaultKeys.includes(key)) {
+    problems.push(`examples/admin-console-full.json has "${key}", which is not a setting`);
+  }
+}
+
 // Exposing the guidance page to the web would turn it into a ready-made phishing template:
 // extension origin, tenant branding, attacker-chosen hostname and "sign in" copy.
 if ('web_accessible_resources' in manifest) {

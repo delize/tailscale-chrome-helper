@@ -18,13 +18,28 @@ export const DEFAULTS = {
   // client for them. Fleets that deploy Tailscale by MDM turn it off.
   showInstallLink: true,
   tailscaleDownloadUrl: 'https://tailscale.com/download',
+  // Empty by default, deliberately. Tailscale registers the tailscale:// scheme, but it
+  // serves signed deeplinks only. Both tailscale:// and tailscale://connect launch the
+  // client, which then rejects them with "The signing request could not be authenticated:
+  // Unable to verify deeplink". Verified on macOS, both forms. There is no unsigned URL
+  // that simply opens the app, so this ships off rather than handing users an error
+  // dialog. An administrator can point it at something that does work in their
+  // environment, such as an MDM self-service page.
+  openAppUrl: '',
+  openAppLabel: 'Open Tailscale',
   connectHelpUrl: '',
   controlUrl: 'http://connectivitycheck.gstatic.com/generate_204',
   portalUrl: 'http://neverssl.com/',
   logoDataUrl: '',
+  bannerDataUrl: '',
+  accentColor: '',
   probeTimeoutMs: 1500,
   targetTimeoutMs: 4000,
   pollIntervalMs: 2500,
+  // Polling is bounded. Without this the page retried forever while promising the app was
+  // 'not responding yet', which is an optimistic claim it cannot keep, and it kept the
+  // service worker resident indefinitely.
+  pollTimeoutMs: 120000,
   suppressMs: 8000,
   askItAfterAttempts: 2,
   strings: {},
@@ -39,8 +54,12 @@ const BRANDED = {
     headline: "This app is on {company}'s private network",
     lede: '{host} could not be reached. That usually means Tailscale is not connected on this device.',
     steps: [
-      'Tailscale is almost certainly already running on this device. Look for its icon at the top right of your screen (macOS menu bar) or bottom right (Windows system tray). It is faint while disconnected, which makes it easy to miss.',
-      'Click it and flip the toggle at the top of the menu, so "Not Connected" becomes "Connected". No icon at all? Press Command Space and type Tailscale (on Windows, search the Start menu), then sign in with your {company} account.',
+      'Tailscale is almost certainly already running on this device. Look for its icon at the top right of your screen (macOS menu bar) or bottom right (Windows system tray). It is faint while disconnected, which makes it easy to miss. {openApp}',
+      // Before the flip, not after it. Someone who could not find the icon in step one
+      // cannot act on an instruction to click that icon, so the recovery has to come
+      // first or they read past the only step that helps them.
+      'No icon anywhere? Then it is not running. Open Tailscale from Applications on macOS, or search the Start menu on Windows, and sign in with your {company} account if it asks. Its icon appears once it starts.',
+      'Click the icon and flip the toggle at the top of the menu, so "Not Connected" becomes "Connected". Opening the app does not connect it for you, that switch still has to be flipped.',
       'Stay on this page. It checks every few seconds and takes you to the app automatically once you are connected.',
     ],
   },
@@ -68,12 +87,14 @@ const BRANDED = {
     pill: 'Tailscale is connected',
     pillProbing: 'Tailscale is connected, reaching the app',
     pillConnected: 'Connected, taking you to the app',
+    pillGaveUp: 'The app is still not answering',
     headline: 'The app is not responding yet',
     lede: 'Tailscale is connected, but {host} has not answered. The app may still be starting, or it may be down.',
     steps: [
       'Give it a few seconds. This page keeps retrying on its own.',
       'If it stays unavailable, the problem is the app rather than your connection.',
-      'Report it using the button below if this carries on.',
+      // No promise of a button, because supportUrl may be unset and then there is none.
+      'If it carries on, it is worth reporting, since nothing you change locally will fix it.',
     ],
   },
 };
@@ -157,11 +178,33 @@ function cleanProbeUrl(value) {
 // requiring ';' rejected the unparameterised form most SVG-to-data-URI tools emit.
 const MAX_LOGO_BYTES = 256 * 1024;
 
-function cleanImage(value) {
+function cleanImage(value, maxBytes = MAX_LOGO_BYTES) {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
-  if (trimmed.length > MAX_LOGO_BYTES) return null;
+  if (trimmed.length > maxBytes) return null;
   return /^data:image\/(png|jpeg|gif|webp|svg\+xml)[;,]/i.test(trimmed) ? trimmed : null;
+}
+
+// A strict hex pattern, not a general colour parser. The value is written into a CSS
+// custom property, so anything that could carry a semicolon or a url() would be injecting
+// CSS into a privileged page. Six or three digit hex cannot.
+// Launching a local application, so the allowlist differs from a support link: the custom
+// scheme is the point, and mailto would be meaningless. https stays permitted for
+// organisations that route this through a self-service portal instead.
+function cleanAppUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    return ['tailscale:', 'https:'].includes(url.protocol) ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function cleanColor(value) {
+  if (typeof value !== 'string') return null;
+  const hex = value.trim();
+  return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(hex) ? hex.toLowerCase() : null;
 }
 
 function cleanInt(value, min, max) {
@@ -183,7 +226,7 @@ function cleanStrings(value) {
     const src = value[state];
     if (!src || typeof src !== 'object') continue;
     const dst = {};
-    for (const field of ['pill', 'pillProbing', 'pillConnected', 'headline', 'lede']) {
+    for (const field of ['pill', 'pillProbing', 'pillConnected', 'pillGaveUp', 'headline', 'lede']) {
       const text = cleanText(src[field]);
       if (text !== null) dst[field] = text;
     }
@@ -207,13 +250,19 @@ export const CLEANERS = {
   checkingLabel: (v) => cleanText(v, 60),
   showInstallLink: (v) => (typeof v === 'boolean' ? v : null),
   tailscaleDownloadUrl: cleanLink,
+  openAppUrl: cleanAppUrl,
+  openAppLabel: (v) => cleanText(v, 40),
   connectHelpUrl: cleanLink,
   controlUrl: cleanProbeUrl,
   portalUrl: cleanProbeUrl,
   logoDataUrl: cleanImage,
+  // A banner spans the card, so it gets a larger cap than the logo.
+  bannerDataUrl: (v) => cleanImage(v, 1024 * 1024),
+  accentColor: cleanColor,
   probeTimeoutMs: (v) => cleanInt(v, 200, 30000),
   targetTimeoutMs: (v) => cleanInt(v, 200, 30000),
   pollIntervalMs: (v) => cleanInt(v, 500, 60000),
+  pollTimeoutMs: (v) => cleanInt(v, 10000, 3600000),
   // Floor of 1 rather than 0: zero reads as 'do not suppress' and silently reinstates
   // the Back-button bounce the map exists to prevent.
   suppressMs: (v) => cleanInt(v, 1, 120000),

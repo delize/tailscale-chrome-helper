@@ -66,6 +66,10 @@ function renderTemplate(container, template, tokens) {
   }
 }
 
+// Every link here opens in a new tab. The page tells the user to stay on it, and it
+// takes them to the app by itself once the connection returns, so navigating away is
+// the one thing that breaks the recovery it promises. mailto: is exempt because a new
+// tab for a mail handler just leaves a blank one behind.
 function setLink(anchor, wrap, href, label) {
   if (!href) {
     (wrap || anchor).hidden = true;
@@ -73,6 +77,13 @@ function setLink(anchor, wrap, href, label) {
   }
   anchor.href = href;
   if (label) anchor.textContent = label;
+  if (href.startsWith('mailto:')) {
+    anchor.removeAttribute('target');
+    anchor.rel = 'noreferrer';
+  } else {
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+  }
   (wrap || anchor).hidden = false;
   return true;
 }
@@ -112,18 +123,31 @@ async function main() {
     steps.textContent = '';
     for (const step of copy.steps || []) {
       const li = document.createElement('li');
-      // "toggle" is the one word users hunt for, so it stays emphasised.
       const text = applyTokens(step, tokens);
-      const parts = text.split(/\b(toggle)\b/);
-      parts.forEach((part, i) => {
-        if (i % 2 === 1) {
+      // Two things get lifted out of the prose: "toggle", the one word users scan for,
+      // and {openApp}, which becomes a real link so the page can launch the client rather
+      // than describe where to find it.
+      for (const part of text.split(/(\{openApp\}|\btoggle\b)/)) {
+        if (part === 'toggle') {
           const strong = document.createElement('strong');
           strong.textContent = part;
           li.appendChild(strong);
+        } else if (part === '{openApp}') {
+          // Drops out entirely when unset, which is the default, leaving the sentence
+          // before it to end the step cleanly.
+          if (!config.openAppUrl) continue;
+          const a = document.createElement('a');
+          a.className = 'inline-action';
+          a.href = config.openAppUrl;
+          a.textContent = config.openAppLabel;
+          // Chrome names the requesting origin in its prompt, and for an extension that is
+          // the raw ID, which looks alarming without warning.
+          a.title = 'Chrome will ask permission first and will show this extension\u2019s ID';
+          li.appendChild(a);
         } else if (part) {
           li.appendChild(document.createTextNode(part));
         }
-      });
+      }
       steps.appendChild(li);
     }
 
@@ -141,9 +165,19 @@ async function main() {
     // The problem is the app, and nothing in the illustration helps them.
     el('illustration').hidden = connected;
     el('caption').hidden = connected;
+    // With no illustration there is nothing to put beside the steps, so drop to one column
+    // rather than leaving an empty half.
+    el('columns').classList.toggle('single', connected);
 
     // Offering an installer to someone whose client is plainly running is worse than
     // useless, so the download route is tied to the one state that can warrant it.
+    // appDown means Tailscale is up and the app is not answering, which is the one state
+    // the user cannot fix themselves. Waiting for a second failure to offer the support
+    // route just delays the only useful action, and the copy for that state points at the
+    // button directly.
+    const escalate = attemptsReached || name === 'appDown';
+    setLink(el('askIt'), null, escalate ? config.supportUrl : '', config.supportLabel);
+
     const canInstall = config.showInstallLink && name === 'tailscaleOff' && attemptsReached;
     setLink(el('download'), null, canInstall ? config.tailscaleDownloadUrl : '', 'Install Tailscale');
 
@@ -163,6 +197,19 @@ async function main() {
   el('menuAvatar').textContent = (company || tokens.exampleEmail).trim().charAt(0) || '?';
   el('menuTailnet').textContent = tokens.tailnetName;
   el('menuManaged').textContent = company ? `Managed by ${company}` : 'Managed by your organisation';
+
+  // Accent is applied as a custom property so one value drives the button, links and
+  // focus ring without any of them being restyled individually.
+  if (config.accentColor) {
+    document.documentElement.style.setProperty('--accent', config.accentColor);
+  }
+
+  if (config.bannerDataUrl) {
+    const banner = el('banner');
+    banner.src = config.bannerDataUrl;
+    banner.alt = '';
+    banner.hidden = false;
+  }
 
   if (config.logoDataUrl) {
     const logo = el('logo');
@@ -184,8 +231,7 @@ async function main() {
   } catch {
     // sessionStorage can be unavailable. The hint is a nicety, not a need.
   }
-  const attemptsReached = attempts >= config.askItAfterAttempts;
-  if (attemptsReached) setLink(el('askIt'), null, config.supportUrl, config.supportLabel);
+  let attemptsReached = attempts >= config.askItAfterAttempts;
 
   paint(state);
   if (!resolved) {
@@ -204,17 +250,62 @@ async function main() {
       location.reload();
       return;
     }
-    // Drop the worker's re-show guard for this tab and URL first. Without this a retry
-    // that fails again is treated as a Back-button bounce and swallowed, leaving the user
-    // stranded on Chrome's error page. Awaited so the worker has acted before we navigate,
-    // and failure is not fatal: the worst case is the old behaviour.
+    // Check first, navigate only on success. Navigating and hoping the worker catches the
+    // failure and brings the user back is a gamble that loses: the re-show guard cannot
+    // tell a deliberate retry from a Back-button bounce, so a failed retry could strand
+    // the user on Chrome's error page with no way back. Probing from here cannot strand
+    // anyone, because a failure never leaves the page.
+    const originalLabel = retry.textContent;
+    gaveUp = false;
     retry.disabled = true;
+    retry.textContent = config.checkingLabel;
+    el('pill').dataset.state = 'wait';
+    el('pillText').textContent = config.checkingLabel;
+
     try {
-      await chrome.runtime.sendMessage({ type: 'retrying', url: target.href });
-    } catch {
-      // Worker asleep or unreachable. Navigate anyway.
+      const now = await currentState();
+      if (now) {
+        state = now;
+        resolved = true;
+      }
+
+      if (await appResponds()) {
+        redirecting = true;
+        el('pill').dataset.state = 'ok';
+        const copy = copyFor('appDown');
+        el('pillText').textContent = applyTokens(copy.pillConnected || copy.pill, tokens);
+        try {
+          sessionStorage.removeItem(attemptsKey);
+        } catch {
+          // Nothing to clean up if storage was unavailable.
+        }
+        // Clear the worker's guard so that if this navigation fails after all, the
+        // guidance page still comes back rather than Chrome's error page.
+        try {
+          await chrome.runtime.sendMessage({ type: 'retrying', url: target.href });
+        } catch {
+          // Worker asleep. The navigation is still worth attempting.
+        }
+        location.replace(target.href);
+        return;
+      }
+
+      // Still unreachable. Count it, so repeated manual retries surface the support route
+      // the same way repeated visits do, and repaint in case the state changed.
+      attempts += 1;
+      try {
+        sessionStorage.setItem(attemptsKey, String(attempts));
+      } catch {
+        // The counter is a nicety, not a need.
+      }
+      attemptsReached = attempts >= config.askItAfterAttempts;
+      paint(state);
+    } finally {
+      if (!redirecting) {
+        retry.disabled = false;
+        retry.textContent = originalLabel;
+      }
     }
-    location.replace(target.href);
   });
   if (!target) retry.disabled = true;
 
@@ -260,9 +351,13 @@ async function main() {
 
   let ticking = false;
   let redirecting = false;
+  let gaveUp = false;
 
   async function tick() {
-    if (ticking || redirecting) return;
+    if (ticking || redirecting || gaveUp) return;
+    // Nobody is looking at a background tab, and a probe every few seconds there is pure
+    // waste that also keeps the worker awake.
+    if (document.hidden) return;
     ticking = true;
     try {
       const now = await currentState();
@@ -305,7 +400,21 @@ async function main() {
   }
 
   tick();
-  setInterval(tick, config.pollIntervalMs);
+  const poller = setInterval(tick, config.pollIntervalMs);
+
+  // Stop checking eventually. Retrying forever kept the service worker resident and left
+  // the page claiming the app was 'not responding yet', which promises a success it has no
+  // reason to expect. Try again still works, so giving up is not a dead end.
+  setTimeout(() => {
+    if (redirecting) return;
+    clearInterval(poller);
+    gaveUp = true;
+    const copy = copyFor(state);
+    el('pill').dataset.state = 'bad';
+    el('pillText').textContent = applyTokens(copy.pillGaveUp || copy.pill, tokens);
+    // At this point it is worth reporting whatever the attempt count says.
+    setLink(el('askIt'), null, config.supportUrl, config.supportLabel);
+  }, config.pollTimeoutMs);
 }
 
 main();

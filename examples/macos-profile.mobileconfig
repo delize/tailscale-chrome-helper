@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadDisplayName</key>
+			<string>Tailnet Connection Helper settings</string>
+			<key>PayloadEnabled</key>
+			<true/>
+			<key>PayloadIdentifier</key>
+			<string>com.acme.tailnet-connection-helper.settings</string>
+			<key>PayloadType</key>
+			<string>com.google.Chrome.extensions.EXTENSION_ID_HERE</string>
+			<key>PayloadUUID</key>
+			<string>REPLACE-WITH-ANOTHER-FRESH-UUID</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>companyName</key>
+			<string>Acme</string>
+			<key>emailDomain</key>
+			<string>acme.com</string>
+			<key>showInstallLink</key>
+			<false/>
+			<key>supportUrl</key>
+			<string>https://help.acme.com/tailscale</string>
+			<key>tailnetName</key>
+			<string>Acme</string>
+			<key>watchedSuffixes</key>
+			<array>
+				<string>acme.ts.net</string>
+			</array>
+		</dict>
+	</array>
+	<key>PayloadDescription</key>
+	<string>Configuration for the Tailnet Connection Helper Chrome extension.</string>
+	<key>PayloadDisplayName</key>
+	<string>Tailnet Connection Helper</string>
+	<key>PayloadIdentifier</key>
+	<string>com.acme.tailnet-connection-helper</string>
+	<key>PayloadOrganization</key>
+	<string>Acme</string>
+	<key>PayloadScope</key>
+	<string>System</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>REPLACE-WITH-A-FRESH-UUID</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>

@@ -1,0 +1,125 @@
+{
+  "$schema": "http://json-schema.org/draft-03/schema#",
+  "title": "Tailnet Connection Helper configuration",
+  "description": "Administrator configuration delivered through Chrome's managed storage. Set these under the extension's ID in the Admin console field 'Policy for extensions'. Values use the flat form, for example {\"companyName\": \"Acme\"}.",
+  "type": "object",
+  "properties": {
+    "enabled": {
+      "title": "Enabled",
+      "description": "Set false to leave Chrome's normal error page in place without uninstalling the extension.",
+      "type": "boolean"
+    },
+    "companyName": {
+      "title": "Company name",
+      "description": "Organisation name shown on the guidance page, for example 'Acme'. Leave unset for neutral wording that names no company.",
+      "type": "string"
+    },
+    "watchedSuffixes": {
+      "title": "Watched domain suffixes",
+      "description": "Hostnames or suffixes this extension acts on, for example ['acme.ts.net']. A failed navigation to anything else is ignored and Chrome's own error page is left alone. Defaults to ['ts.net'], which matches every tailnet.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "tailnetName": {
+      "title": "Tailnet display name",
+      "description": "Name shown under the account row in the illustrated Tailscale menu, matching what users actually see in their client.",
+      "type": "string"
+    },
+    "emailDomain": {
+      "title": "Email domain",
+      "description": "Domain used to render the example account in the illustration as you@example.com. Illustrative only, no address is read or sent.",
+      "type": "string"
+    },
+    "supportUrl": {
+      "title": "Support link",
+      "description": "Where the escalation button sends a user who has already retried. Must be an https, mailto or slack URL. Leave unset to hide the button.",
+      "type": "string"
+    },
+    "supportLabel": {
+      "title": "Support button label",
+      "description": "Text on the escalation button. Defaults to 'Ask IT'.",
+      "type": "string"
+    },
+    "tailscaleDownloadUrl": {
+      "title": "Tailscale download link",
+      "description": "Shown to users who have no Tailscale client at all. Defaults to the official download page.",
+      "type": "string"
+    },
+    "connectHelpUrl": {
+      "title": "Internal runbook link",
+      "description": "Optional link to your own connection instructions, shown alongside the built-in steps.",
+      "type": "string"
+    },
+    "controlUrl": {
+      "title": "Connectivity check URL",
+      "description": "Public endpoint used to tell 'Tailscale is off' apart from 'this network needs a captive portal sign-in'. Fetched no-cors with no user data. Override if your network blocks the default.",
+      "type": "string"
+    },
+    "logoDataUrl": {
+      "title": "Logo",
+      "description": "Optional logo as a data:image/ URI. Remote URLs are rejected so the page never makes an outbound request.",
+      "type": "string"
+    },
+    "probeTimeoutMs": {
+      "title": "Probe timeout (ms)",
+      "description": "How long to wait for the local Tailscale check before calling it down. Default 1500.",
+      "type": "integer"
+    },
+    "targetTimeoutMs": {
+      "title": "App reachability timeout (ms)",
+      "description": "How long to wait for the destination app before retrying. Default 4000.",
+      "type": "integer"
+    },
+    "pollIntervalMs": {
+      "title": "Poll interval (ms)",
+      "description": "How often the guidance page rechecks connectivity. Default 2500.",
+      "type": "integer"
+    },
+    "suppressMs": {
+      "title": "Re-show suppression (ms)",
+      "description": "How long to avoid re-showing the guidance page for the same tab and URL, so pressing Back does not bounce the user forward again. Default 8000.",
+      "type": "integer"
+    },
+    "askItAfterAttempts": {
+      "title": "Attempts before escalation",
+      "description": "Number of failed visits to the same URL before the support button appears. Default 2.",
+      "type": "integer"
+    },
+    "strings": {
+      "title": "Copy overrides",
+      "description": "Replaces the wording for any of the four states. Supports the placeholders {company}, {host}, {error}, {tailnetName} and {exampleEmail}. Override only the states you care about, the rest keep their defaults.",
+      "type": "object",
+      "properties": {
+        "tailscaleOff": { "$ref": "stateCopy" },
+        "captivePortal": { "$ref": "stateCopy" },
+        "offline": { "$ref": "stateCopy" },
+        "appDown": { "$ref": "stateCopy" }
+      }
+    }
+  },
+  "definitions": {
+    "stateCopy": {
+      "id": "stateCopy",
+      "type": "object",
+      "properties": {
+        "pill": {
+          "description": "Short status label in the chip at the top of the page.",
+          "type": "string"
+        },
+        "headline": {
+          "description": "Main heading. Placeholders are substituted as plain text.",
+          "type": "string"
+        },
+        "lede": {
+          "description": "Sentence under the heading explaining what failed.",
+          "type": "string"
+        },
+        "steps": {
+          "description": "Numbered instructions shown to the user.",
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

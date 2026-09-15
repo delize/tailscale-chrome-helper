@@ -120,6 +120,7 @@ Policy changes apply without a browser restart.
 | `emailDomain` | string | unset | Renders the example account as `you@acme.com`. Illustrative only. |
 | `supportUrl` | string | unset | Escalation link. `https`, `mailto` or `slack` only. Hidden when unset. |
 | `supportLabel` | string | `Ask IT` | Text on the escalation button. |
+| `checkingLabel` | string | `Checking your connection` | Status shown while the first connection check is still running. |
 | `showInstallLink` | boolean | `true` | Set false where Tailscale is deployed by MDM, so users are not told to install it themselves. |
 | `tailscaleDownloadUrl` | string | Tailscale's download page | Offered only when Tailscale is not running, and only if `showInstallLink` is true. |
 | `openAppUrl` | string | unset | Link offered when the icon cannot be found. Accepts `tailscale:` or `https:`. Off by default, see below. |
@@ -255,9 +256,26 @@ default.
 }
 ```
 
-Available placeholders: `{company}`, `{host}`, `{error}`, `{tailnetName}` and
-`{exampleEmail}`. They are inserted as plain text, so markup in a value appears as
-literal characters rather than being rendered.
+Each state accepts these fields. All are optional; anything you leave out keeps its
+default.
+
+| Field | Shown |
+|---|---|
+| `pill` | The status chip at the top of the page. |
+| `headline` | The main heading. |
+| `lede` | The sentence under the heading. |
+| `steps` | The numbered instructions, as an array of strings. |
+| `pillProbing` | Status while the page is checking whether the app answers. `appDown` only. |
+| `pillConnected` | Status shown just before the user is returned to the app. `appDown` only. |
+
+Available placeholders: `{company}`, `{host}`, `{error}`, `{tailnetName}`,
+`{exampleEmail}` and `{openApp}`. They are inserted as plain text, so markup in a value
+appears as literal characters rather than being rendered. `{openApp}` becomes the link
+described above, and disappears entirely when `openAppUrl` is unset.
+
+One field is emphasised automatically: the word **toggle** anywhere in a step is bolded,
+because it is the word users scan for. That is an English-language assumption, so if you
+translate the copy the emphasis will not follow.
 
 The default heading reads "This app is on {company}'s private network". That possessive
 reads badly for a name ending in s, and does not translate. Override `headline` in that

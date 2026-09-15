@@ -17,9 +17,11 @@ ICONS = Path(__file__).resolve().parent.parent / "icons"
 
 BACKGROUND = (32, 33, 38, 255)
 FOREGROUND = (245, 246, 250, 255)
+# Present but recessed, the way Tailscale recesses the dots outside its own letterform.
+RECESSED = (96, 100, 112, 255)
 
-# The two gaps that turn a grid into an H.
-OMIT = {(1, 0), (1, 2)}
+# All nine dots are drawn. These two are the ones outside the H, so they sit back.
+RECESS = {(1, 0), (1, 2)}
 
 
 def render(size):
@@ -33,9 +35,10 @@ def render(size):
             if dx * dx + dy * dy <= radius * radius:
                 pixels[y][x] = BACKGROUND
 
-    # Optical sizing. Dots of any useful radius turn square below about 32px, and the
-    # middle row then reads as a plus rather than an H. At small sizes the same letter is
-    # drawn with solid strokes, which survives.
+    # Optical sizing. At 16px a dot is about two pixels across: the grid turns to mush and
+    # a recessed dot is indistinguishable from a lit one, so the H stops reading. Small
+    # sizes draw the same letter with solid strokes instead. This is the icon that appears
+    # in the toolbar, so legibility wins over consistency there.
     if size < 32:
         draw_strokes(pixels, size)
     else:
@@ -44,17 +47,21 @@ def render(size):
 
 
 def draw_dots(pixels, size):
+    """The full nine-dot grid, with the H picked out in the bright dots.
+
+    Tailscale's own mark is nine dots with a t in the bright ones. Keeping the grid and
+    changing only which dots are lit says 'related tooling' without reusing the letter.
+    """
     dot_radius = size * 0.082
     for gx in range(3):
         for gy in range(3):
-            if (gx, gy) in OMIT:
-                continue
+            colour = RECESSED if (gx, gy) in RECESS else FOREGROUND
             cx = size * (0.28 + 0.22 * gx)
             cy = size * (0.28 + 0.22 * gy)
             for y in range(size):
                 for x in range(size):
                     if (x - cx) ** 2 + (y - cy) ** 2 <= dot_radius * dot_radius:
-                        pixels[y][x] = FOREGROUND
+                        pixels[y][x] = colour
 
 
 def draw_strokes(pixels, size):

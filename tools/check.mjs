@@ -90,6 +90,22 @@ for (const field of COPY_FIELDS_DOCUMENTED) {
   }
 }
 
+// The full policy example has to stay complete, or an administrator copying it silently
+// inherits a config missing the newest settings.
+const fullExample = JSON.parse(
+  readFileSync(new URL('../examples/admin-console-full.json', import.meta.url), 'utf8')
+);
+for (const key of defaultKeys) {
+  if (!(key in fullExample)) {
+    problems.push(`examples/admin-console-full.json is missing "${key}"`);
+  }
+}
+for (const key of Object.keys(fullExample)) {
+  if (!defaultKeys.includes(key)) {
+    problems.push(`examples/admin-console-full.json has "${key}", which is not a setting`);
+  }
+}
+
 // Exposing the guidance page to the web would turn it into a ready-made phishing template:
 // extension origin, tenant branding, attacker-chosen hostname and "sign in" copy.
 if ('web_accessible_resources' in manifest) {

@@ -1,0 +1,40 @@
+{
+  "enabled": true,
+  "companyName": "Acme",
+  "watchedSuffixes": [
+    "acme.ts.net"
+  ],
+  "tailnetName": "Acme",
+  "emailDomain": "acme.com",
+  "supportUrl": "https://help.acme.com/tailscale",
+  "supportLabel": "Ask IT",
+  "checkingLabel": "Checking your connection",
+  "showInstallLink": false,
+  "tailscaleDownloadUrl": "https://tailscale.com/download",
+  "openAppUrl": "",
+  "openAppLabel": "Open Tailscale",
+  "connectHelpUrl": "https://wiki.acme.com/tailscale",
+  "controlUrl": "http://connectivitycheck.gstatic.com/generate_204",
+  "portalUrl": "http://neverssl.com/",
+  "logoDataUrl": "",
+  "bannerDataUrl": "",
+  "accentColor": "#4a63d8",
+  "probeTimeoutMs": 1500,
+  "targetTimeoutMs": 4000,
+  "pollIntervalMs": 2500,
+  "suppressMs": 8000,
+  "askItAfterAttempts": 2,
+  "strings": {
+    "tailscaleOff": {
+      "pill": "Tailscale is not connected",
+      "headline": "This app is on {company}'s private network",
+      "lede": "{host} could not be reached. That usually means Tailscale is not connected on this device.",
+      "steps": [
+        "Look for the Tailscale icon in your menu bar or system tray.",
+        "No icon? Open Tailscale from Applications, or search the Start menu on Windows.",
+        "Click the icon and flip the toggle so it reads Connected.",
+        "Stay on this page. It takes you to the app once you are connected."
+      ]
+    }
+  }
+}

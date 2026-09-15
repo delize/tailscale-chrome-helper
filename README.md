@@ -148,6 +148,16 @@ there, and is reported on the options page instead.
 administrator-facing schema, or if the permission set changes. Both are drift that would
 otherwise be noticed only after a release.
 
+## Policy examples
+
+Ready-to-use blobs for each deployment path live in [examples/](examples/): the flat JSON
+for the Admin console (minimal and complete), a macOS configuration profile, a Windows
+`.reg`, and a Linux managed-policy file. `examples/README.md` explains which to use and
+how to tell whether it applied.
+
+The complete example is checked against `DEFAULTS` on every build, so it cannot fall
+behind the settings the extension actually supports.
+
 ## Layout
 
 ```

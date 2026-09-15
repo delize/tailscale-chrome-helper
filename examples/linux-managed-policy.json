@@ -1,0 +1,16 @@
+{
+  "3rdparty": {
+    "extensions": {
+      "EXTENSION_ID_HERE": {
+        "companyName": "Acme",
+        "watchedSuffixes": [
+          "acme.ts.net"
+        ],
+        "tailnetName": "Acme",
+        "emailDomain": "acme.com",
+        "supportUrl": "https://help.acme.com/tailscale",
+        "showInstallLink": false
+      }
+    }
+  }
+}

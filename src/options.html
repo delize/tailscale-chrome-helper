@@ -88,16 +88,24 @@
         <div class="actions">
           <label class="inline">
             Situation
-            <select id="previewState">
-              <option value="tailscaleOff">Tailscale is not connected</option>
-              <option value="captivePortal">Network needs sign-in</option>
-              <option value="offline">Device is offline</option>
-              <option value="appDown">App is not responding</option>
-            </select>
+            <!-- Filled from STATES at runtime. A hardcoded list meant the two newest
+                 states, the ones least exercised, were the two nobody could preview. -->
+            <select id="previewState"></select>
           </label>
           <button type="button" class="secondary" id="previewBtn">Preview guidance page</button>
         </div>
         <p class="hint" id="previewHint"></p>
+      </section>
+      <!-- Always present, on every install, with every optional setting off. The
+           disclosure rule is not satisfied by a privacy policy alone, and it applies to
+           data handled locally as much as to data sent somewhere. -->
+      <section class="handling">
+        <h2>What this extension handles</h2>
+        <p id="disclosureHandles"></p>
+        <p id="disclosureRecords" hidden></p>
+        <p class="hint">
+          Full detail is in the privacy policy, including what is stored and for how long.
+        </p>
       </section>
     </main>
     <script type="module" src="options.js"></script>

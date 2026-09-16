@@ -124,12 +124,26 @@
 
         <div class="actions">
           <button type="button" class="primary" id="retry">Try again now</button>
+          <a class="primary-link" id="goSuggested" hidden rel="noreferrer"></a>
+          <!-- A button, not a link: it has no href, so as an anchor it was unfocusable,
+               not announced as a link, and showed a text cursor. On wrongTailnet it is
+               the user's only way past the suggestion, so mouse-only was not acceptable. -->
+          <button type="button" class="secondary" id="continueAnyway" hidden>Continue anyway</button>
           <a class="secondary" id="askIt" hidden rel="noreferrer"></a>
           <a class="secondary" id="portal" hidden rel="noreferrer">Open the sign-in page</a>
           <a class="secondary" id="download" hidden rel="noreferrer">Install Tailscale</a>
         </div>
+
+        <!-- Beside the button it explains. At card level it rendered under the opposite
+             column's caption, reading as a footnote about the illustration. -->
+        <p class="ask-it-note" id="askItNote" hidden></p>
         </div>
       </div>
+
+      <!-- Shown only while recordUnwatchedHosts is on. A doc alone does not satisfy the
+           disclosure rule, which says it "must not be located only in a privacy policy".
+           Kept to one muted line: this page exists to unblock someone who is stuck. -->
+      <p class="disclosure" id="disclosure" hidden></p>
 
       <p class="details" id="details"></p>
     </main>

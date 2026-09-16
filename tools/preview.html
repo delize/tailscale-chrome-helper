@@ -30,6 +30,11 @@
       set('logoDataUrl', q.get('logo'));
       set('bannerDataUrl', q.get('banner'));
       set('accentColor', q.get('accent'));
+      if (q.get('suggest')) managed.suggestCorrectTailnet = true;
+      if (q.get('nocontinue')) managed.showContinueAnyway = false;
+      // ?record=1 shows the data-handling notice, which is the only page element an
+      // administrator cannot reword. Without this the notice was unreviewable.
+      if (q.get('record')) managed.recordUnwatchedHosts = true;
       if (q.get('suffixes')) {
         managed.watchedSuffixes = q.get('suffixes').split(',').map((s) => s.trim());
       } else if (q.get('target')) {

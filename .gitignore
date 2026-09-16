@@ -7,3 +7,6 @@ dist/
 dist-policy/
 dev-config.json
 !dev-config.example.json
+
+# Screenshot and trace artifacts left by browser-driving review agents.
+.playwright-mcp/

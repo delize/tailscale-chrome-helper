@@ -52,6 +52,21 @@
       "description": "Whether to offer a Tailscale download link to a user who appears not to have the client running. Set false where Tailscale is deployed by MDM and users cannot or should not install it themselves, so the guidance points at your support route instead. Default true.",
       "type": "boolean"
     },
+    "suggestCorrectTailnet": {
+      "title": "Suggest the right tailnet",
+      "description": "When a user fails to reach a host on a DIFFERENT tailnet, offer the equivalent address on yours. Off by default, because it is the one feature that acts on hosts outside watchedSuffixes. It only ever shows a suggestion, never the connection guidance, and the user can always continue to the address they typed.",
+      "type": "boolean"
+    },
+    "showContinueAnyway": {
+      "title": "Offer a way past the suggestion",
+      "description": "Whether the wrongTailnet page offers a button to continue to the address the user typed. Default true. Setting false hides the button and removes the step that mentions it. IMPORTANT: this does not prevent access. The extension only sees failed navigations, and retyping the address bypasses it entirely. Enforce access to other tailnets with Tailscale ACLs and sharing policy, not with this setting.",
+      "type": "boolean"
+    },
+    "recordUnwatchedHosts": {
+      "title": "Count failed visits to other tailnets",
+      "description": "Keep a local count of failed navigations to tailnet hosts that are not on your watched suffixes, so you can see that people keep trying to reach the wrong one. Off by default. Only .ts.net hosts are recorded, never ordinary browsing, and this extension never transmits the counts: they stay in the browser profile for a fleet tool to read.",
+      "type": "boolean"
+    },
     "tailscaleDownloadUrl": {
       "title": "Tailscale download link",
       "description": "Shown to users who have no Tailscale client at all. Defaults to the official download page.",
@@ -245,6 +260,80 @@
         },
         "appDown": {
           "description": "Wording shown when Tailscale is connected but the app did not answer.",
+          "type": "object",
+          "properties": {
+            "pill": {
+              "description": "Short status label in the chip at the top of the page.",
+              "type": "string"
+            },
+            "pillProbing": {
+              "description": "Status label while the page is checking whether the app answers.",
+              "type": "string"
+            },
+            "pillConnected": {
+              "description": "Status label shown just before the page returns the user to the app.",
+              "type": "string"
+            },
+            "pillGaveUp": {
+              "description": "Status shown once the page has stopped checking.",
+              "type": "string"
+            },
+            "headline": {
+              "description": "Main heading. Placeholders are substituted as plain text.",
+              "type": "string"
+            },
+            "lede": {
+              "description": "Sentence under the heading explaining what failed.",
+              "type": "string"
+            },
+            "steps": {
+              "description": "Numbered instructions shown to the user.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "nameNotFound": {
+          "description": "Wording shown when Tailscale is connected but the name does not resolve.",
+          "type": "object",
+          "properties": {
+            "pill": {
+              "description": "Short status label in the chip at the top of the page.",
+              "type": "string"
+            },
+            "pillProbing": {
+              "description": "Status label while the page is checking whether the app answers.",
+              "type": "string"
+            },
+            "pillConnected": {
+              "description": "Status label shown just before the page returns the user to the app.",
+              "type": "string"
+            },
+            "pillGaveUp": {
+              "description": "Status shown once the page has stopped checking.",
+              "type": "string"
+            },
+            "headline": {
+              "description": "Main heading. Placeholders are substituted as plain text.",
+              "type": "string"
+            },
+            "lede": {
+              "description": "Sentence under the heading explaining what failed.",
+              "type": "string"
+            },
+            "steps": {
+              "description": "Numbered instructions shown to the user.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "wrongTailnet": {
+          "description": "Wording shown when the address belongs to a different tailnet.",
           "type": "object",
           "properties": {
             "pill": {

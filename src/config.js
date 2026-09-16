@@ -17,6 +17,18 @@ export const DEFAULTS = {
   // Off-by-default would be wrong for an individual install, where nobody has pushed the
   // client for them. Fleets that deploy Tailscale by MDM turn it off.
   showInstallLink: true,
+  // Off by default. Turning this on lets the extension act on tailnet hosts outside
+  // watchedSuffixes, purely to offer a correction. Leaving it off keeps the promise that
+  // the extension only touches domains an administrator listed.
+  suggestCorrectTailnet: false,
+  // Hides the button only. It cannot stop anyone reaching another tailnet: the extension
+  // sees failed navigations, not all of them, and retyping the address bypasses it
+  // entirely. Real enforcement is Tailscale ACLs and sharing policy, server side.
+  showContinueAnyway: true,
+  // Counts failed navigations to tailnet hosts that are not watched, in local storage
+  // only. Off by default: it is a record of where someone tried to go, and that should be
+  // a deliberate choice rather than a default. Never transmitted by this extension.
+  recordUnwatchedHosts: false,
   tailscaleDownloadUrl: 'https://tailscale.com/download',
   // Empty by default, deliberately. Tailscale registers the tailscale:// scheme, but it
   // serves signed deeplinks only. Both tailscale:// and tailscale://connect launch the
@@ -45,7 +57,41 @@ export const DEFAULTS = {
   strings: {},
 };
 
-export const STATES = ['tailscaleOff', 'captivePortal', 'offline', 'appDown'];
+// Data-handling disclosure, shown in the interface rather than only in docs/privacy.md.
+//
+// Chrome Web Store policy requires an extension to disclose how it handles user data
+// "even when data is processed or stored locally on a user's device and is not
+// transmitted to external servers", and states the disclosure "must not be located only
+// in a privacy policy, terms of service, or similar document". Hostnames are named
+// explicitly in Google's definition of web browsing activity, so the guidance page and
+// the options page carry this text.
+//
+// Deliberately NOT a config key and NOT part of `strings`. An administrator must not be
+// able to blank the notice that tells people what is being recorded about them, and a
+// disclosure that policy can suppress is not a disclosure. Everything else on these pages
+// is overridable. This is the one thing that is not.
+export const DISCLOSURE = {
+  // True on every install, with every optional setting off. The extension is told the
+  // address of each failed navigation and uses it. Under Google's definition that is
+  // handling web browsing activity, whether or not anything is written down.
+  handles:
+    'This extension is told the address of pages that fail to load, and uses it to decide ' +
+    'whether to show guidance. It stores none of them and sends none of them anywhere.',
+  // Additionally true only while recordUnwatchedHosts is on.
+  records:
+    'Your organisation is recording failed connections to other tailnets on this device, ' +
+    'so it can see which ones people are trying to reach. Only hostnames ending in ts.net ' +
+    'are recorded, only when the connection failed, and they are not sent anywhere.',
+};
+
+export const STATES = [
+  'tailscaleOff',
+  'captivePortal',
+  'offline',
+  'appDown',
+  'nameNotFound',
+  'wrongTailnet',
+];
 
 // Copy used when an administrator has named the organisation.
 const BRANDED = {
@@ -81,6 +127,40 @@ const BRANDED = {
       'Check wifi or your ethernet cable, and reconnect to a network you trust.',
       'Once the network is back, Tailscale usually reconnects on its own. If it does not, click its icon and flip the toggle on.',
       'Stay on this page. It keeps checking and takes you to the app once the connection returns.',
+    ],
+  },
+  // Tailscale is up and the name does not resolve on a tailnet we do watch. Not the app
+  // being down: the device is missing, offline, or not shared, and the fixes differ.
+  nameNotFound: {
+    pill: 'Tailscale is connected',
+    pillGaveUp: 'That name still does not resolve',
+    headline: 'That address is not resolving on your tailnet',
+    lede: 'Tailscale is connected, but {host} does not resolve. Whatever is behind it may be offline, renamed, or not shared with you.',
+    steps: [
+      'Check the name for typos, including the part after the first dot.',
+      // "device list" is Tailscale's own UI label, so it stays. Everywhere else the
+      // destination could be a site, an API or a dashboard, and calling it a device
+      // assumes something we do not know.
+      'Open Tailscale and look through its device list for that name. If it is missing, or greyed out, that is the problem.',
+      'If the address is right and it is online, then this is worth reporting.',
+    ],
+  },
+  // A tailnet host that is not on a watched suffix. Deliberately does not claim the
+  // address is unreachable: per Tailscale's sharing docs a device shared with you keeps
+  // the owner's tailnet name and is reachable across tailnet boundaries while you are
+  // connected to your own. So a foreign-looking name is often perfectly legitimate, and
+  // the page offers a correction without asserting the address is wrong.
+  wrongTailnet: {
+    pill: 'Tailscale is connected',
+    headline: 'That address is on a different tailnet',
+    lede: '{host} is not on your tailnet. That can be normal, since anything shared with you keeps the name of the tailnet it came from.',
+    // Two choices, two buttons, one line each. The mechanics of cross-tailnet sharing are
+    // not the user's problem: they are trying to get somewhere.
+    steps: [
+      '{suggestionOnly}If you meant something on your own tailnet, use the corrected address below.',
+      // The {continueOnly} marker drops the whole step when an administrator has turned
+      // the button off, so the copy never points at something that is not there.
+      '{continueOnly}If you did mean this address, continue anyway.',
     ],
   },
   appDown: {
@@ -249,6 +329,9 @@ export const CLEANERS = {
   supportLabel: (v) => cleanText(v, 40),
   checkingLabel: (v) => cleanText(v, 60),
   showInstallLink: (v) => (typeof v === 'boolean' ? v : null),
+  suggestCorrectTailnet: (v) => (typeof v === 'boolean' ? v : null),
+  showContinueAnyway: (v) => (typeof v === 'boolean' ? v : null),
+  recordUnwatchedHosts: (v) => (typeof v === 'boolean' ? v : null),
   tailscaleDownloadUrl: cleanLink,
   openAppUrl: cleanAppUrl,
   openAppLabel: (v) => cleanText(v, 40),

@@ -2,7 +2,7 @@
 // that exists in code but not in the administrator-facing schema, or vice versa.
 
 import { readFileSync } from 'node:fs';
-import { DEFAULTS, STATES, CLEANERS, defaultStrings } from '../src/config.js';
+import { DEFAULTS, STATES, CLEANERS, defaultStrings, DISCLOSURE } from '../src/config.js';
 
 const schema = JSON.parse(readFileSync(new URL('../schema.json', import.meta.url)));
 const manifest = JSON.parse(readFileSync(new URL('../manifest.json', import.meta.url)));
@@ -58,7 +58,7 @@ for (const hasCompany of [true, false]) {
   }
 }
 
-// The four inlined schema blocks must expose exactly the fields cleanStrings accepts.
+// Each inlined schema block must expose exactly the fields cleanStrings accepts.
 const COPY_FIELDS = ['pill', 'headline', 'lede', 'steps'];
 for (const state of STATES) {
   const block = schema.properties.strings.properties[state];
@@ -106,6 +106,40 @@ for (const key of Object.keys(fullExample)) {
   }
 }
 
+// Per-state maps that fail silently when a state is missing: a wrong pill colour, or the
+// connect-the-toggle illustration shown on a state where Tailscale is already up. Both
+// were missed when the two newest states were added.
+const helpSource = readFileSync(new URL('../src/help.js', import.meta.url), 'utf8');
+const pillTone = helpSource.slice(helpSource.indexOf('const PILL_TONE'), helpSource.indexOf('};', helpSource.indexOf('const PILL_TONE')));
+for (const state of STATES) {
+  if (!pillTone.includes(`${state}:`)) {
+    problems.push(`PILL_TONE in src/help.js has no entry for "${state}"`);
+  }
+}
+
+// ILLUSTRATION_HELPS is an allow list, so a typo silently hides the illustration on the one
+// state that needs it rather than failing loudly. Every name in it must be a real state.
+const illustrationSet = helpSource.slice(
+  helpSource.indexOf('const ILLUSTRATION_HELPS'),
+  helpSource.indexOf(']);', helpSource.indexOf('const ILLUSTRATION_HELPS'))
+);
+for (const name of illustrationSet.match(/'([a-zA-Z]+)'/g) || []) {
+  const state = name.slice(1, -1);
+  if (!STATES.includes(state)) {
+    problems.push(`ILLUSTRATION_HELPS names "${state}", which is not a state`);
+  }
+}
+if (!/ILLUSTRATION_HELPS = new Set\(\['tailscaleOff'/.test(helpSource)) {
+  problems.push('tailscaleOff must keep the illustration: it is the state the page exists for');
+}
+
+// The options page preview must be able to render every state, since it is the only place
+// an administrator can check their copy overrides before users see them.
+const optionsSource = readFileSync(new URL('../src/options.js', import.meta.url), 'utf8');
+if (!optionsSource.includes('for (const state of STATES)')) {
+  problems.push('src/options.js must build the preview list from STATES, not a fixed list');
+}
+
 // Exposing the guidance page to the web would turn it into a ready-made phishing template:
 // extension origin, tenant branding, attacker-chosen hostname and "sign in" copy.
 if ('web_accessible_resources' in manifest) {
@@ -120,6 +154,29 @@ if (manifest.permissions.join() !== expectedPerms.join()) {
 }
 if (manifest.host_permissions.join() !== expectedHosts.join()) {
   problems.push(`host_permissions changed to [${manifest.host_permissions}], expected [${expectedHosts}]`);
+}
+
+// The data-handling disclosure must stay non-configurable. Chrome Web Store policy says it
+// "must not be located only in a privacy policy", so it ships in the interface, and an
+// administrator who could blank it through policy would defeat the point. Fail if it ever
+// becomes a config key, or if either page stops rendering it.
+if ('disclosure' in DEFAULTS || 'disclosure' in CLEANERS || 'disclosure' in schema.properties) {
+  problems.push('disclosure became a configurable key: policy could then suppress it');
+}
+for (const part of ['handles', 'records']) {
+  if (typeof DISCLOSURE[part] !== 'string' || DISCLOSURE[part].length < 40) {
+    problems.push(`DISCLOSURE.${part} is missing or too short to be a real disclosure`);
+  }
+}
+if (!helpSource.includes('DISCLOSURE.records')) {
+  problems.push('help.js no longer renders DISCLOSURE.records');
+}
+if (!optionsSource.includes('DISCLOSURE.handles')) {
+  problems.push('options.js no longer renders DISCLOSURE.handles');
+}
+const storeListing = readFileSync(new URL('../docs/store-listing.md', import.meta.url), 'utf8');
+if (!/Web browsing activity/.test(storeListing)) {
+  problems.push('docs/store-listing.md no longer names the Web browsing activity disclosure');
 }
 
 if (problems.length) {

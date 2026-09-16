@@ -11,6 +11,16 @@ the machine, and sends the user back to the app on its own once the connection r
 It is configured entirely through Chrome policy, so one published extension serves any
 organisation. See [docs/admin-guide.md](docs/admin-guide.md).
 
+## Not affiliated with Tailscale
+
+This is an independent, community-built tool. It is not made, endorsed, or supported by
+Tailscale Inc. "Tailscale" is their trademark, used here only to say what this works with.
+
+The guidance page draws a simplified illustration of the Tailscale client menu so it can
+show a user where the toggle is, with the tenant's own details filled in at runtime. It is
+a reconstruction in markup rather than a copy of their artwork, and the extension's own
+icon is a distinct mark. For support with Tailscale itself, go to Tailscale.
+
 ## Design notes
 
 **Domains come from policy, not the manifest.** The `webNavigation` permission delivers
@@ -155,6 +165,23 @@ there, and is reported on the options page instead.
 `tools/check.mjs` fails the build if a config key exists in code but not in the
 administrator-facing schema, or if the permission set changes. Both are drift that would
 otherwise be noticed only after a release.
+
+## Rebranding by forking
+
+Everything a user reads is configurable at runtime: company name, logo, banner, accent
+colour, and every line of copy. The one thing policy cannot reach is the extension's own
+icon, the one shown on `chrome://extensions` and in the Web Store. Those live in the
+signed package and no API changes them.
+
+If that matters to you, fork and replace `icons/`. Two things follow from doing so:
+
+**Your build gets a different extension ID.** Policy is keyed by ID, so your configuration
+must target yours, not this one. For an unpacked build the ID comes from the directory
+path; for a Web Store listing, from the store. Check `chrome://extensions` and use that
+value wherever the examples say `EXTENSION_ID_HERE`.
+
+**The placeholder icons are not a design.** They are a dot grid that resembles Tailscale's
+own mark, which is the wrong thing to ship under your name. Replace them.
 
 ## Policy examples
 

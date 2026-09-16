@@ -7,6 +7,7 @@
 
 import { loadConfig, watchConfig, matchesWatched } from './config.js';
 import { createSuppressor } from './suppression.js';
+import { recordUnwatchedHit, clearUnwatchedHits, isTailnetHost } from './hostlog.js';
 
 // Tailscale's Quad100 magic IP. It answers HTTP only while the client is connected, so
 // it doubles as a connectivity probe.
@@ -93,8 +94,67 @@ async function classifyInternet(config) {
   }
 }
 
-export async function classify(config) {
-  if (await tailscaleIsUp(config)) return 'appDown';
+// Chrome's own error says which kind of failure this was, and once Tailscale is up the
+// distinction matters: a name that does not resolve is a different problem from an app
+// that does not answer, and the fixes have nothing in common.
+const NAME_ERRORS = new Set([
+  'net::ERR_NAME_NOT_RESOLVED',
+  'net::ERR_NAME_RESOLUTION_FAILED',
+  'net::ERR_DNS_TIMED_OUT',
+]);
+
+// A tailnet host that is not ours. Carry the device label over to the configured tailnet
+// and offer that instead. Returns null rather than guessing whenever the guess would be a
+// guess: already ours, no device label, more than one tailnet, or a broad ts.net config.
+export function suggestOnTailnet(rawUrl, suffixes) {
+  let host;
+  try {
+    host = new URL(rawUrl).hostname.toLowerCase().replace(/\.$/, '');
+  } catch {
+    return null;
+  }
+  if (!host.endsWith('.ts.net')) return null;
+  if (suffixes.some((suffix) => host === suffix || host.endsWith('.' + suffix))) return null;
+  const tailnets = suffixes.filter((x) => x.endsWith('.ts.net') && x.split('.').length === 3);
+  if (tailnets.length !== 1) return null;
+  const labels = host.slice(0, -'.ts.net'.length).split('.');
+  if (labels.length < 2) return null;
+  return labels.slice(0, -1).join('.') + '.' + tailnets[0];
+}
+
+// Hosts the user chose to continue to anyway. chrome.storage.session, not a module-level
+// Set: MV3 kills an idle worker after about thirty seconds, so in-memory state meant the
+// user was re-interposed on a host they had explicitly said they meant, often within a
+// minute. Session storage is memory-backed and cleared on browser restart, which is the
+// lifetime the docs promise.
+const DISMISSED_KEY = 'dismissedHosts';
+
+async function isDismissed(host) {
+  try {
+    const items = await chrome.storage.session.get(DISMISSED_KEY);
+    return Array.isArray(items?.[DISMISSED_KEY]) && items[DISMISSED_KEY].includes(host);
+  } catch {
+    return false;
+  }
+}
+
+async function rememberDismissal(host) {
+  try {
+    const items = await chrome.storage.session.get(DISMISSED_KEY);
+    const list = Array.isArray(items?.[DISMISSED_KEY]) ? items[DISMISSED_KEY] : [];
+    if (list.includes(host)) return;
+    // Bounded, so a crafted or looping caller cannot grow it without limit.
+    const next = [...list, host].slice(-100);
+    await chrome.storage.session.set({ [DISMISSED_KEY]: next });
+  } catch {
+    // A dismissal that cannot be stored is a re-prompt, not a failure worth surfacing.
+  }
+}
+
+export async function classify(config, error) {
+  if (await tailscaleIsUp(config)) {
+    return NAME_ERRORS.has(error) ? 'nameNotFound' : 'appDown';
+  }
   const internet = await classifyInternet(config);
   if (internet === 'captive') return 'captivePortal';
   if (internet === 'offline') return 'offline';
@@ -105,15 +165,39 @@ export async function classify(config) {
 // failed. In that window the user may have typed a different URL, hit Back, or closed the
 // tab, so the tab is re-checked before it is taken over and the update is never allowed to
 // reject into nothing.
+// The last top-level navigation seen per tab.
+//
+// This exists because the obvious check does not work. Tab.url and Tab.pendingUrl are, per
+// Chrome's docs, "only present if the extension has the 'tabs' permission or has host
+// permissions for the page", and this extension holds neither for a tailnet host. So
+// reading them returned undefined, the moved-on check could never fire, and the comment
+// claiming the tab was re-checked was describing something that had never run.
+//
+// webNavigation reports every navigation with no host permission at all, which is the same
+// property the rest of this worker is built on, so the information is available. It just
+// has to be remembered rather than asked for.
+//
+// Module state is right here, unlike the dismissal set. This is only consulted a few
+// storage reads after the navigation failed, well inside the worker's lifetime, and an
+// empty map after a restart fails open exactly as the old code did.
+const lastNavigation = new Map();
+
+chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+  if (details.frameId === 0) lastNavigation.set(details.tabId, details.url);
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => lastNavigation.delete(tabId));
+
 async function showHelpPage(tabId, targetUrl, extraParams) {
-  let tab;
+  // The user typed something else while we were reading config. Leave them alone.
+  const current = lastNavigation.get(tabId);
+  if (current !== undefined && current !== targetUrl) return;
+
   try {
-    tab = await chrome.tabs.get(tabId);
+    await chrome.tabs.get(tabId);
   } catch {
     return; // Tab closed while we were probing.
   }
-  const current = tab.pendingUrl || tab.url;
-  if (current && current !== targetUrl) return; // User moved on; leave them alone.
 
   const helpUrl = new URL(chrome.runtime.getURL('src/help.html'));
   helpUrl.searchParams.set('target', targetUrl);
@@ -135,8 +219,40 @@ chrome.webNavigation.onErrorOccurred.addListener(async (details) => {
 
   const { config } = await loadConfig();
   if (!config.enabled) return;
-  if (!matchesWatched(details.url, config.watchedSuffixes)) return;
+
+  const watched = matchesWatched(details.url, config.watchedSuffixes);
+  let suggestion = null;
+  if (!watched) {
+    // One of two settings that act outside the configured domains, the other being the
+    // counter below. Opt-in, and silent for anyone who has not turned it on.
+    if (!config.suggestCorrectTailnet) return;
+    suggestion = suggestOnTailnet(details.url, config.watchedSuffixes);
+    if (!suggestion) return;
+    try {
+      if (await isDismissed(new URL(details.url).hostname.toLowerCase())) return;
+    } catch {
+      return;
+    }
+  }
+
   if (suppressor.shouldSuppress(details.tabId, details.url, config.suppressMs)) return;
+
+  // After the suppressor, so a Back-button bounce is not counted as a second attempt. The
+  // number is a fleet signal an administrator acts on, so inflating it matters. Still
+  // independent of suggestCorrectTailnet: this runs whether or not that is on.
+  if (!watched && config.recordUnwatchedHosts) await recordUnwatchedHit(details.url);
+
+  if (suggestion) {
+    // No probing. The correction is worth offering either way, and the copy does not
+    // claim the address is unreachable: a shared device keeps its original tailnet name
+    // and is reachable across tailnets once Tailscale is connected.
+    await showHelpPage(details.tabId, details.url, {
+      error: details.error,
+      state: 'wrongTailnet',
+      suggestion,
+    });
+    return;
+  }
 
   // Deliberately not classified here. The Quad100 probe is blackholed rather than refused
   // when Tailscale is off, so it burns its full timeout, and the portal probe adds another
@@ -167,12 +283,33 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     sendResponse(true);
     return true;
   }
+  if (message.type === 'dismiss-suggestion') {
+    // The user said they meant that address. Stop interposing for it this session.
+    // Validated like any other input: only a real tailnet host can be dismissed, so this
+    // cannot be used to suppress guidance for arbitrary domains.
+    const host = typeof message.host === 'string' ? message.host.toLowerCase() : '';
+    if (_sender.id === chrome.runtime.id && isTailnetHost(host)) {
+      rememberDismissal(host).then(() => sendResponse(true), () => sendResponse(false));
+      return true;
+    }
+    sendResponse(false);
+    return true;
+  }
   if (message.type === 'classify') {
     loadConfig()
-      .then(({ config }) => classify(config))
+      .then(({ config }) => classify(config, message.error))
       .then(sendResponse, () => sendResponse(null));
     return true;
   }
 });
 
-watchConfig();
+// Disabling a setting that records where someone tried to go should delete what it
+// recorded, not merely stop appending to it.
+let recordingWasOn = null;
+watchConfig(({ config }) => {
+  if (recordingWasOn === true && config.recordUnwatchedHosts === false) clearUnwatchedHits();
+  recordingWasOn = config.recordUnwatchedHosts;
+});
+loadConfig().then(({ config }) => {
+  recordingWasOn = config.recordUnwatchedHosts;
+});

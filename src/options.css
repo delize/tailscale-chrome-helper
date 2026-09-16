@@ -192,3 +192,23 @@ select {
     color: #7a2020;
   }
 }
+
+/* Data-handling disclosure. Quiet, but always present: it is not allowed to live only in
+   the privacy policy, and an administrator cannot turn it off. */
+.handling {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line, #2a2f3a);
+}
+
+.handling h2 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.handling p {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted, #98a0b3);
+}

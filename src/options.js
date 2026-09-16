@@ -1,7 +1,13 @@
 // Settings for an unmanaged install. Anything an administrator has set through policy
 // wins and is shown locked, which is the whole point of enrolling an extension.
 
-import { loadConfig, invalidateConfig } from './config.js';
+import {
+  loadConfig,
+  invalidateConfig,
+  STATES,
+  defaultStrings,
+  DISCLOSURE,
+} from './config.js';
 
 const BOOL_FIELDS = ['enabled', 'showInstallLink'];
 
@@ -27,6 +33,20 @@ function lock(input, isManaged) {
   (label.querySelector('span') || label).prepend(tag);
 }
 
+// One option per state, labelled with that state's own headline so the list cannot drift
+// from the states that actually exist.
+function fillPreviewStates(config) {
+  const select = el('previewState');
+  if (select.options.length) return;
+  const copy = defaultStrings(Boolean(config.companyName));
+  for (const state of STATES) {
+    const option = document.createElement('option');
+    option.value = state;
+    option.textContent = (copy[state]?.headline || state).replace('{company}', 'your company');
+    select.appendChild(option);
+  }
+}
+
 async function render() {
   const { config, managedKeys, rejected } = await loadConfig({ force: true });
 
@@ -42,6 +62,15 @@ async function render() {
 
   el('watchedSuffixes').value = (config.watchedSuffixes || []).join('\n');
   lock(el('watchedSuffixes'), managedKeys.has('watchedSuffixes'));
+
+  fillPreviewStates(config);
+
+  // Disclosure, rendered from a constant rather than from config so that no policy value
+  // can blank it. The first line is true of every install; the second appears only while
+  // the setting that actually stores hostnames is on.
+  el('disclosureHandles').textContent = DISCLOSURE.handles;
+  el('disclosureRecords').textContent = DISCLOSURE.records;
+  el('disclosureRecords').hidden = !config.recordUnwatchedHosts;
 
   if (managedKeys.size) el('managedNote').hidden = false;
 

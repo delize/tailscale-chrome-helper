@@ -10,7 +10,7 @@ have listed, it replaces Chrome's "This site can't be reached" page with guidanc
 names your organisation and explains how to reconnect. It then rechecks on its own and
 returns the user to the app once the connection is back.
 
-It distinguishes four situations rather than assuming the first one:
+It distinguishes six situations rather than assuming the first one:
 
 | State | Meaning |
 |---|---|
@@ -18,6 +18,8 @@ It distinguishes four situations rather than assuming the first one:
 | `captivePortal` | Something is intercepting traffic, so a wifi sign-in is pending. |
 | `offline` | Nothing is reachable at all. |
 | `appDown` | Tailscale is connected but the app itself did not answer. |
+| `nameNotFound` | Tailscale is connected, but the name does not resolve on your tailnet. |
+| `wrongTailnet` | The address belongs to a different tailnet. Only reachable with `suggestCorrectTailnet` on. |
 
 Telling these apart matters. Advising someone to flip the Tailscale toggle is wrong when
 the real block is an unsigned-in hotel network.
@@ -122,6 +124,9 @@ Policy changes apply without a browser restart.
 | `supportLabel` | string | `Ask IT` | Text on the escalation button. |
 | `checkingLabel` | string | `Checking your connection` | Status shown while the first connection check is still running. |
 | `showInstallLink` | boolean | `true` | Set false where Tailscale is deployed by MDM, so users are not told to install it themselves. |
+| `suggestCorrectTailnet` | boolean | `false` | Offer the corrected address when a user lands on a different tailnet. See below. |
+| `showContinueAnyway` | boolean | `true` | Whether that page offers a way past the suggestion. Hides a button, does not block access. See below. |
+| `recordUnwatchedHosts` | boolean | `false` | Count failed visits to other tailnets, locally. See below. |
 | `tailscaleDownloadUrl` | string | Tailscale's download page | Offered only when Tailscale is not running, and only if `showInstallLink` is true. |
 | `openAppUrl` | string | unset | Link offered when the icon cannot be found. Accepts `tailscale:` or `https:`. Off by default, see below. |
 | `openAppLabel` | string | `Open Tailscale` | Text of that link. |
@@ -220,6 +225,83 @@ Worth knowing either way: Chrome's permission prompt names the requesting origin
 an extension that is the raw extension ID rather than a friendly name. Users find that
 alarming without warning.
 
+### Suggesting the right tailnet
+
+`suggestCorrectTailnet` is **off by default**, and deliberately so. It has to look at
+tailnet hosts you did not list, because that is the whole point: spotting that someone
+typed a host on somebody else's tailnet.
+
+It is one of **two** settings that act outside `watchedSuffixes`. The other is
+`recordUnwatchedHosts`, below. Both are off by default, and both are limited to `*.ts.net`
+hosts. With both off, the extension acts only on the domains you listed.
+
+When it is on, a failed navigation to any `*.ts.net` host that is not yours shows the
+corrected address and nothing else.
+
+The wording is careful not to claim the address is wrong. Per Tailscale's sharing
+documentation a device shared with you keeps the name of the tailnet it came from, and is
+reachable across tailnet boundaries while you are connected to your own. So a
+foreign-looking hostname is frequently legitimate, and the page offers an alternative
+rather than an accusation.
+
+It refuses to guess rather than guessing badly. No suggestion is offered when the host is
+already on your tailnet, when the host is a bare tailnet name with no device label, when
+you have configured more than one tailnet, or when `watchedSuffixes` is the broad `ts.net`.
+
+By default the user can continue to the address they typed. That choice is remembered for
+the rest of the browser session, so the extension stops interposing for that host. A
+suggestion you cannot decline is an interception.
+
+### Counting failed visits to other tailnets
+
+`recordUnwatchedHosts` keeps a local tally so you can see that people keep trying to reach
+the wrong tailnet. Off by default.
+
+**This acts outside `watchedSuffixes`**, by design: it is counting hosts you did not list.
+It is independent of `suggestCorrectTailnet`, so turning that off does not turn this off.
+
+Only `*.ts.net` hosts are recorded, never ordinary browsing, and only navigations that
+failed. Entries older than 90 days are dropped, at most 200 are kept, and turning the
+setting off deletes the record. The extension never transmits the counts. See
+[host-counts.md](host-counts.md) for the storage shape, which is a stable contract, and
+for how to read it with osquery.
+
+#### Turning this on is a disclosure you are making
+
+Storing the hostnames of failed navigations is handling web browsing activity, and Chrome
+Web Store policy treats it as such whether or not anything leaves the device. Google's
+definition of that category names "the domains or URLs the browser interacts with"
+explicitly, and its guidance says disclosure is required "even when data is processed or
+stored locally on a user's device and is not transmitted to external servers".
+
+So while this setting is on, the guidance page carries a line telling the user that failed
+connections to other tailnets are being recorded on their device. That notice is built into
+the extension and **cannot be removed or reworded by policy**, unlike every other string on
+the page. A notice an administrator can switch off is not a disclosure.
+
+Check this against your own obligations before enabling it. Depending on where your people
+are, an employee-monitoring notice or a works council consultation may be needed, and this
+extension cannot make that judgement for you. The setting is off by default for this
+reason and not merely as a technical default.
+
+There is no option to send these counts to a server. That was considered and declined, so
+that the privacy policy's "transmits nothing" claim stays absolute. Read the record with
+the fleet agent you already run.
+
+### showContinueAnyway is not an access control
+
+Setting `showContinueAnyway` to false removes that button, and removes the step that
+refers to it so the page never points at a control that is not there.
+
+**It does not prevent anyone reaching another tailnet, and should not be relied on as
+though it does.** This extension only ever sees navigations that *failed*. It does not see
+successful ones, and it cannot stop a user retyping the address, following a link, or
+using a bookmark. Turning the button off removes an invitation, nothing more.
+
+If users must not reach other tailnets, enforce that where it can actually be enforced:
+Tailscale ACLs and sharing policy. A browser extension is the wrong layer, and treating
+this setting as a control would leave you believing something is blocked when it is not.
+
 ### Captive portals, and why the probe is plaintext
 
 `controlUrl` must be an `http://` URL. This is not an oversight. A captive portal cannot
@@ -271,7 +353,12 @@ default.
 | `pillGaveUp` | Status shown once the page has stopped checking, after `pollTimeoutMs`. |
 
 Available placeholders: `{company}`, `{host}`, `{error}`, `{tailnetName}`,
-`{exampleEmail}` and `{openApp}`. They are inserted as plain text, so markup in a value
+`{exampleEmail}`, `{openApp}` and `{suggestion}`.
+
+Two further markers apply only to `wrongTailnet.steps`. A step beginning `{suggestionOnly}`
+is dropped when there is no corrected address to show, and one beginning `{continueOnly}`
+is dropped when the continue button is hidden. Keep them if you rewrite those steps, or the
+copy will point at buttons that are not on the page. They are inserted as plain text, so markup in a value
 appears as literal characters rather than being rendered. `{openApp}` becomes the link
 described above, and disappears entirely when `openAppUrl` is unset.
 

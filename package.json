@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Chrome extension that replaces the browser error page with connection guidance when a Tailscale tailnet app is unreachable.",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "check": "node tools/check.mjs",

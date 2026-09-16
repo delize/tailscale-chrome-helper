@@ -242,3 +242,14 @@ src/options.*      settings for unmanaged installs
 tools/             checks, packaging, preview harness (never packaged)
 tests/             logic tests
 ```
+
+## Licence
+
+Apache License 2.0. See [LICENSE](LICENSE).
+
+Apache-2.0 rather than MIT for one reason that matters here: section 6 states the licence
+grants no trademark rights. The code can be forked, rebranded and shipped freely, and the
+marks stay where [Not affiliated with Tailscale](#not-affiliated-with-tailscale) puts them.
+Forking to rebrand is an expected use of this project, not a tolerated one, so the terms
+should say so plainly rather than leaving it to be inferred.
+

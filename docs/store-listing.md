@@ -21,6 +21,11 @@ of Chrome's error page.
 There is no host permission for any website, so the extension cannot read page content,
 cookies, or form data.
 
+The second connectivity endpoint (`controlUrlFallback`, contacted only when the first one
+fails) deliberately has **no** host permission. It is fetched `no-cors` and the only thing
+read from it is whether anything answered, so a permission would buy nothing and widen the
+install warning for no gain.
+
 ## Trademark and affiliation
 
 The listing must say this is unofficial, because the name, the description and the guidance

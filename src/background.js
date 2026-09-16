@@ -69,7 +69,31 @@ async function tailscaleIsUp(config) {
 // request without a certificate the client will reject, so an https probe can only ever
 // fail, which this code used to read as "offline" and tell a hotel guest to check their
 // ethernet cable. Over http the portal answers, and that answer is the signal.
+// Does anything at all answer at this address? no-cors, so it needs no host permission:
+// the question is only whether something responded, and an opaque response answers it.
+// Used as a second opinion, never as the primary signal, because it cannot tell an ordinary
+// reply from a captive portal's.
+async function somethingAnswers(url, timeoutMs) {
+  if (!url) return false;
+  let done = () => {};
+  try {
+    const probe = await fetchWithTimeout(url, timeoutMs, { mode: 'no-cors' });
+    done = probe.done;
+    return true;
+  } catch {
+    return false;
+  } finally {
+    done();
+  }
+}
+
 async function classifyInternet(config) {
+  // A reliable negative and nothing more. navigator.onLine === false means there is no
+  // route off this machine, which is worth trusting and worth short-circuiting two probe
+  // timeouts for. onLine === true means almost nothing, so it can rule offline in but
+  // never out, and the probes below still have to run.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'offline';
+
   let done = () => {};
   try {
     const probe = await fetchWithTimeout(config.controlUrl, config.probeTimeoutMs, {
@@ -88,6 +112,16 @@ async function classifyInternet(config) {
     if (res.type === 'opaque') return 'online';
     return 'captive';
   } catch {
+    // One failed request to one host is not evidence of no network. A firewall or a DNS
+    // filter that blocks only this endpoint produced exactly this failure, and the user was
+    // then told their device was offline and sent to check a cable that was fine. Their
+    // real state is tailscaleOff, which is what a second opinion now recovers.
+    if (await somethingAnswers(config.controlUrlFallback, config.probeTimeoutMs)) {
+      // Something answered elsewhere, so there is a network. Whether this one is a portal
+      // cannot be told from an opaque response, and claiming a portal that is not there
+      // sends the user hunting for a sign-in page. Online is the honest reading.
+      return 'online';
+    }
     return 'offline';
   } finally {
     done();

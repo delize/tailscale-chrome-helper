@@ -131,6 +131,30 @@ Then open `chrome://extensions`, turn on Developer mode, click **Load unpacked**
 choose the `dist/` directory. Load `dist/`, not the repository root: the repo contains the
 preview harness, tests and tooling, none of which belong in an installed extension.
 
+#### After every rebuild, reload and then reload again
+
+`npm run build` rewrites `dist/`, and Chrome keeps running the service worker it already
+registered. Two steps, in this order:
+
+1. **Reload the extension** with the circular arrow on its card at `chrome://extensions`.
+   Without this you are testing the previous build.
+2. **Re-trigger the navigation** in the tab. Reloading the extension does not re-run the
+   failed navigation, so a tab already sitting on Chrome's error page stays there. Reload
+   that tab, or retype the address.
+
+This is worth stating because the obvious check is misleading. Running
+
+```js
+fetch(chrome.runtime.getURL('src/background.js')).then(r => r.text()).then(t => console.log(t.includes('someNewSymbol')))
+```
+
+in the service worker console reads the file **from disk**, so it reports the new build
+while the registered worker is still the old one. It answers "are the files current",
+not "which worker is running", and those differ for exactly as long as it matters.
+
+Policy is not like this. A managed-preferences change reaches a running extension through
+`chrome.storage.onChanged` with no reload and no browser restart.
+
 ### Testing configuration
 
 Two layers, and they exercise different code.

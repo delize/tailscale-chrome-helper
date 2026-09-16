@@ -117,6 +117,22 @@ for (const state of STATES) {
   }
 }
 
+// ILLUSTRATION_HELPS is an allow list, so a typo silently hides the illustration on the one
+// state that needs it rather than failing loudly. Every name in it must be a real state.
+const illustrationSet = helpSource.slice(
+  helpSource.indexOf('const ILLUSTRATION_HELPS'),
+  helpSource.indexOf(']);', helpSource.indexOf('const ILLUSTRATION_HELPS'))
+);
+for (const name of illustrationSet.match(/'([a-zA-Z]+)'/g) || []) {
+  const state = name.slice(1, -1);
+  if (!STATES.includes(state)) {
+    problems.push(`ILLUSTRATION_HELPS names "${state}", which is not a state`);
+  }
+}
+if (!/ILLUSTRATION_HELPS = new Set\(\['tailscaleOff'/.test(helpSource)) {
+  problems.push('tailscaleOff must keep the illustration: it is the state the page exists for');
+}
+
 // The options page preview must be able to render every state, since it is the only place
 // an administrator can check their copy overrides before users see them.
 const optionsSource = readFileSync(new URL('../src/options.js', import.meta.url), 'utf8');

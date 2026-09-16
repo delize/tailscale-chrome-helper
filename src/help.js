@@ -26,6 +26,15 @@ const PILL_TONE = {
 // say the opposite of the pill.
 const TAILSCALE_IS_UP = new Set(['appDown', 'nameNotFound']);
 
+// The illustration answers exactly one question: where is the Tailscale toggle. It belongs
+// on the states where finding that toggle is the user's next action, and nowhere else,
+// because it is the largest thing on the page and the eye goes to it before the steps.
+//
+// Deliberately an allow list. Three separate places used to decide this and a fourth state
+// would have had to remember to opt out, which is how offline kept an illustration that
+// contradicted its own first instruction.
+const ILLUSTRATION_HELPS = new Set(['tailscaleOff', 'captivePortal']);
+
 const el = (id) => document.getElementById(id);
 
 // Only reachable by hand-editing the URL, since the worker always supplies a validated
@@ -218,13 +227,17 @@ async function main() {
     illustration.classList.toggle('demo', !connected);
     el('menuToggle').classList.toggle('on', connected);
 
-    // When Tailscale is already up, telling someone where to find its icon is noise.
-    // The problem is the app, and nothing in the illustration helps them.
-    el('illustration').hidden = connected;
-    el('caption').hidden = connected;
+    // Hidden wherever the toggle is not the answer. When Tailscale is already up the
+    // problem is the app. On wrongTailnet it is a naming problem. On offline the network
+    // is the problem, and Tailscale being down is a symptom that clears on its own: the
+    // steps say so, and the poll loop repaints this page as tailscaleOff the moment the
+    // network returns, which is when that advice is worth reading.
+    const showIllustration = ILLUSTRATION_HELPS.has(name);
+    el('illustration').hidden = !showIllustration;
+    el('caption').hidden = !showIllustration;
     // With no illustration there is nothing to put beside the steps, so drop to one column
     // rather than leaving an empty half.
-    el('columns').classList.toggle('single', connected);
+    el('columns').classList.toggle('single', !showIllustration);
 
     // Offering an installer to someone whose client is plainly running is worse than
     // useless, so the download route is tied to the one state that can warrant it.
@@ -268,12 +281,9 @@ async function main() {
       suggesting ? suggestion : ''
     );
     el('continueAnyway').hidden = !continueShown;
-    // Nothing on this state is about the connection, so the illustration and the retry
-    // would both be misleading.
+    // The illustration is already handled by ILLUSTRATION_HELPS above. What is specific to
+    // wrongTailnet is that retrying is meaningless: nothing here is waiting on connectivity.
     if (name === 'wrongTailnet') {
-      el('illustration').hidden = true;
-      el('caption').hidden = true;
-      el('columns').classList.add('single');
       // Retry stays when there is no suggestion to offer, otherwise the page is two
       // instructions pointing at two buttons that do not exist, with nothing clickable.
       el('retry').hidden = suggesting;

@@ -116,3 +116,23 @@ test('step markers are scoped, repeatable, and never leak literal text', () => {
   assert.match(help, /replaceAll\('\{suggestionOnly\}', ''\)/, 'both markers stripped');
   assert.match(help, /if \(name === 'wrongTailnet'\) \{\s*\n\s*if \(rawStep\.includes/, 'scoped');
 });
+
+test('the illustration appears only where finding the toggle is the next action', () => {
+  const help = readFileSync(new URL('../src/help.js', import.meta.url), 'utf8');
+  const set = help.slice(
+    help.indexOf('const ILLUSTRATION_HELPS'),
+    help.indexOf(']);', help.indexOf('const ILLUSTRATION_HELPS'))
+  );
+  assert.ok(set.includes("'tailscaleOff'"), 'the state the page exists for keeps it');
+  // offline told the user to check their wifi, then filled the page with a Tailscale
+  // tutorial for a symptom that clears itself once the network is back.
+  assert.ok(!set.includes("'offline'"), 'offline does not show the illustration');
+  assert.ok(!set.includes("'appDown'"), 'nothing in it helps when the app is the problem');
+  assert.ok(!set.includes("'wrongTailnet'"), 'a naming problem is not a connection problem');
+
+  // One decision, in one place. wrongTailnet used to repeat it, which is how offline was
+  // missed: a new state had to remember to opt out of something it never opted into.
+  const decisions = help.match(/el\('illustration'\)\.hidden/g) || [];
+  assert.equal(decisions.length, 1, 'exactly one place decides this');
+  assert.match(help, /el\('illustration'\)\.hidden = !showIllustration/);
+});

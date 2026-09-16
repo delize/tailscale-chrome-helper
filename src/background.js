@@ -165,15 +165,39 @@ export async function classify(config, error) {
 // failed. In that window the user may have typed a different URL, hit Back, or closed the
 // tab, so the tab is re-checked before it is taken over and the update is never allowed to
 // reject into nothing.
+// The last top-level navigation seen per tab.
+//
+// This exists because the obvious check does not work. Tab.url and Tab.pendingUrl are, per
+// Chrome's docs, "only present if the extension has the 'tabs' permission or has host
+// permissions for the page", and this extension holds neither for a tailnet host. So
+// reading them returned undefined, the moved-on check could never fire, and the comment
+// claiming the tab was re-checked was describing something that had never run.
+//
+// webNavigation reports every navigation with no host permission at all, which is the same
+// property the rest of this worker is built on, so the information is available. It just
+// has to be remembered rather than asked for.
+//
+// Module state is right here, unlike the dismissal set. This is only consulted a few
+// storage reads after the navigation failed, well inside the worker's lifetime, and an
+// empty map after a restart fails open exactly as the old code did.
+const lastNavigation = new Map();
+
+chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+  if (details.frameId === 0) lastNavigation.set(details.tabId, details.url);
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => lastNavigation.delete(tabId));
+
 async function showHelpPage(tabId, targetUrl, extraParams) {
-  let tab;
+  // The user typed something else while we were reading config. Leave them alone.
+  const current = lastNavigation.get(tabId);
+  if (current !== undefined && current !== targetUrl) return;
+
   try {
-    tab = await chrome.tabs.get(tabId);
+    await chrome.tabs.get(tabId);
   } catch {
     return; // Tab closed while we were probing.
   }
-  const current = tab.pendingUrl || tab.url;
-  if (current && current !== targetUrl) return; // User moved on; leave them alone.
 
   const helpUrl = new URL(chrome.runtime.getURL('src/help.html'));
   helpUrl.searchParams.set('target', targetUrl);

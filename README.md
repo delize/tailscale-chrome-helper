@@ -11,6 +11,16 @@ the machine, and sends the user back to the app on its own once the connection r
 It is configured entirely through Chrome policy, so one published extension serves any
 organisation. See [docs/admin-guide.md](docs/admin-guide.md).
 
+## Not affiliated with Tailscale
+
+This is an independent, community-built tool. It is not made, endorsed, or supported by
+Tailscale Inc. "Tailscale" is their trademark, used here only to say what this works with.
+
+The guidance page draws a simplified illustration of the Tailscale client menu so it can
+show a user where the toggle is, with the tenant's own details filled in at runtime. It is
+a reconstruction in markup rather than a copy of their artwork, and the extension's own
+icon is a distinct mark. For support with Tailscale itself, go to Tailscale.
+
 ## Design notes
 
 **Domains come from policy, not the manifest.** The `webNavigation` permission delivers

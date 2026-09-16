@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Tailnet Connection Helper",
   "version": "1.0.0",
-  "description": "Replaces Chrome's error page with connection guidance when a Tailscale tailnet app is unreachable.",
+  "description": "Unofficial. Replaces Chrome's error page with connection guidance when a Tailscale tailnet app is unreachable.",
   "minimum_chrome_version": "106",
   "permissions": [
     "webNavigation",

@@ -14,8 +14,11 @@ globalThis.chrome = {
     onChanged: { addListener: () => {} },
   },
   runtime: { onMessage: { addListener: () => {} }, getURL: (p) => 'chrome-extension://test/' + p },
-  webNavigation: { onErrorOccurred: { addListener: () => {} } },
-  tabs: { get: async () => ({}), update: async () => {} },
+  webNavigation: {
+    onErrorOccurred: { addListener: () => {} },
+    onBeforeNavigate: { addListener: () => {} },
+  },
+  tabs: { get: async () => ({}), update: async () => {}, onRemoved: { addListener: () => {} } },
 };
 
 const { loadConfig, invalidateConfig, matchesWatched, applyTokens, defaultStrings, DEFAULTS, STATES } =

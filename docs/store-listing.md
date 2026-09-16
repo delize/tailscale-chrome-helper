@@ -21,6 +21,23 @@ of Chrome's error page.
 There is no host permission for any website, so the extension cannot read page content,
 cookies, or form data.
 
+## Trademark and affiliation
+
+The listing must say this is unofficial, because the name, the description and the guidance
+page all reference Tailscale, and an extension that names another company's product while
+drawing its interface is exactly the shape that draws an impersonation review.
+
+- The manifest description opens with "Unofficial."
+- The README carries a non-affiliation notice.
+- The illustration is a simplified reconstruction in HTML and CSS, not their artwork, and it
+  exists so the page can fill in the tenant's own account details at runtime.
+- The extension icon is a nine-dot grid with an H, not Tailscale's t. It was changed for
+  this reason: the earlier version read as their mark.
+
+Nominative use of a trademark to state compatibility is ordinarily fine. The risk here is
+the combination of name, reconstructed UI and a similar icon, so the disclaimer is cheap
+insurance rather than an admission.
+
 ## Data disclosure
 
 Tick **Web browsing activity**. Do not tick anything else.

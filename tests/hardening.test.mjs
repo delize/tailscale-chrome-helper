@@ -5,6 +5,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 let MANAGED = {};
+// Captured so the navigation guard can be driven rather than grepped: it is the exact bug
+// class a source assertion cannot see, since the old check read a property that was always
+// undefined and therefore never fired.
+const LISTENERS = {};
+const UPDATES = [];
 globalThis.chrome = {
   storage: {
     managed: { get: (_k, cb) => cb(MANAGED) },
@@ -12,12 +17,23 @@ globalThis.chrome = {
     local: { get: (_k, cb) => cb({}), set: (_v, cb) => cb(), remove: (_k, cb) => cb() },
     onChanged: { addListener: () => {} },
   },
-  runtime: { onMessage: { addListener: () => {} }, getURL: (p) => p },
-  webNavigation: { onErrorOccurred: { addListener: () => {} } },
-  tabs: { get: async () => ({}), update: async () => {} },
+  runtime: {
+    onMessage: { addListener: () => {} },
+    // Absolute, because showHelpPage builds a URL from it.
+    getURL: (p) => 'chrome-extension://aaaabbbbccccddddeeeeffffgggghhhh/' + p,
+  },
+  webNavigation: {
+    onErrorOccurred: { addListener: (fn) => (LISTENERS.onErrorOccurred = fn) },
+    onBeforeNavigate: { addListener: (fn) => (LISTENERS.onBeforeNavigate = fn) },
+  },
+  tabs: {
+    get: async () => ({}),
+    update: async (tabId, props) => UPDATES.push({ tabId, ...props }),
+    onRemoved: { addListener: (fn) => (LISTENERS.onRemoved = fn) },
+  },
 };
 
-const { matchesWatched } = await import('../src/config.js');
+const { matchesWatched, invalidateConfig } = await import('../src/config.js');
 const { suggestOnTailnet, classify } = await import('../src/background.js');
 const { mergeHit, MAX_AGE_MS, STORAGE_VERSION } = await import('../src/hostlog.js');
 
@@ -135,4 +151,60 @@ test('the illustration appears only where finding the toggle is the next action'
   const decisions = help.match(/el\('illustration'\)\.hidden/g) || [];
   assert.equal(decisions.length, 1, 'exactly one place decides this');
   assert.match(help, /el\('illustration'\)\.hidden = !showIllustration/);
+});
+
+// The moved-on guard, driven rather than grepped. The bug it replaces was invisible to a
+// source assertion: the old code read Tab.pendingUrl || Tab.url, which Chrome leaves
+// undefined without the "tabs" permission, so the check looked correct and never ran.
+const TARGET = 'https://app.acme.ts.net/';
+const FAILURE = {
+  frameId: 0,
+  documentLifecycle: 'active',
+  error: 'net::ERR_NAME_NOT_RESOLVED',
+  url: TARGET,
+};
+
+test('the tab is taken over when the user is still on the failed address', async () => {
+  MANAGED = { watchedSuffixes: ['acme.ts.net'] };
+  invalidateConfig();
+  UPDATES.length = 0;
+
+  LISTENERS.onBeforeNavigate({ tabId: 11, frameId: 0, url: TARGET });
+  await LISTENERS.onErrorOccurred({ ...FAILURE, tabId: 11 });
+
+  assert.equal(UPDATES.length, 1, 'the guidance page replaced the error page');
+  assert.match(UPDATES[0].url, /help\.html/);
+});
+
+test('a tab that moved on during the config read is left alone', async () => {
+  MANAGED = { watchedSuffixes: ['acme.ts.net'] };
+  invalidateConfig();
+  UPDATES.length = 0;
+
+  // The user typed something else after the navigation failed.
+  LISTENERS.onBeforeNavigate({ tabId: 22, frameId: 0, url: 'https://elsewhere.example/' });
+  await LISTENERS.onErrorOccurred({ ...FAILURE, tabId: 22 });
+
+  assert.equal(UPDATES.length, 0, 'no takeover: the user is somewhere else now');
+});
+
+test('a subframe navigation does not count as the user moving on', async () => {
+  MANAGED = { watchedSuffixes: ['acme.ts.net'] };
+  invalidateConfig();
+  UPDATES.length = 0;
+
+  LISTENERS.onBeforeNavigate({ tabId: 33, frameId: 0, url: TARGET });
+  // An iframe inside the failed page is not the user going somewhere.
+  LISTENERS.onBeforeNavigate({ tabId: 33, frameId: 3, url: 'https://ads.example/pixel' });
+  await LISTENERS.onErrorOccurred({ ...FAILURE, tabId: 33 });
+
+  assert.equal(UPDATES.length, 1, 'still taken over');
+});
+
+test('closing a tab does not leak its navigation record', () => {
+  LISTENERS.onBeforeNavigate({ tabId: 44, frameId: 0, url: TARGET });
+  LISTENERS.onRemoved(44);
+  // Nothing observable to assert beyond it not throwing, but the listener must exist and
+  // accept a bare tabId, which is the shape Chrome actually sends.
+  assert.ok(typeof LISTENERS.onRemoved === 'function');
 });

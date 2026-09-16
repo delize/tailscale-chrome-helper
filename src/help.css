@@ -657,6 +657,22 @@ a {
   color: var(--muted);
 }
 
+.disclosure {
+  margin: 22px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--faint);
+}
+
+/* When the disclosure is present it already carries the rule, so the details line below
+   it must not draw a second one. */
+.disclosure:not([hidden]) + .details {
+  margin-top: 6px;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .details {
   margin: 22px 0 0;
   padding-top: 16px;

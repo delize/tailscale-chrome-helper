@@ -266,6 +266,28 @@ setting off deletes the record. The extension never transmits the counts. See
 [host-counts.md](host-counts.md) for the storage shape, which is a stable contract, and
 for how to read it with osquery.
 
+#### Turning this on is a disclosure you are making
+
+Storing the hostnames of failed navigations is handling web browsing activity, and Chrome
+Web Store policy treats it as such whether or not anything leaves the device. Google's
+definition of that category names "the domains or URLs the browser interacts with"
+explicitly, and its guidance says disclosure is required "even when data is processed or
+stored locally on a user's device and is not transmitted to external servers".
+
+So while this setting is on, the guidance page carries a line telling the user that failed
+connections to other tailnets are being recorded on their device. That notice is built into
+the extension and **cannot be removed or reworded by policy**, unlike every other string on
+the page. A notice an administrator can switch off is not a disclosure.
+
+Check this against your own obligations before enabling it. Depending on where your people
+are, an employee-monitoring notice or a works council consultation may be needed, and this
+extension cannot make that judgement for you. The setting is off by default for this
+reason and not merely as a technical default.
+
+There is no option to send these counts to a server. That was considered and declined, so
+that the privacy policy's "transmits nothing" claim stays absolute. Read the record with
+the fleet agent you already run.
+
 ### showContinueAnyway is not an access control
 
 Setting `showContinueAnyway` to false removes that button, and removes the step that

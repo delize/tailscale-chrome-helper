@@ -2,7 +2,7 @@
 // that exists in code but not in the administrator-facing schema, or vice versa.
 
 import { readFileSync } from 'node:fs';
-import { DEFAULTS, STATES, CLEANERS, defaultStrings } from '../src/config.js';
+import { DEFAULTS, STATES, CLEANERS, defaultStrings, DISCLOSURE } from '../src/config.js';
 
 const schema = JSON.parse(readFileSync(new URL('../schema.json', import.meta.url)));
 const manifest = JSON.parse(readFileSync(new URL('../manifest.json', import.meta.url)));
@@ -138,6 +138,29 @@ if (manifest.permissions.join() !== expectedPerms.join()) {
 }
 if (manifest.host_permissions.join() !== expectedHosts.join()) {
   problems.push(`host_permissions changed to [${manifest.host_permissions}], expected [${expectedHosts}]`);
+}
+
+// The data-handling disclosure must stay non-configurable. Chrome Web Store policy says it
+// "must not be located only in a privacy policy", so it ships in the interface, and an
+// administrator who could blank it through policy would defeat the point. Fail if it ever
+// becomes a config key, or if either page stops rendering it.
+if ('disclosure' in DEFAULTS || 'disclosure' in CLEANERS || 'disclosure' in schema.properties) {
+  problems.push('disclosure became a configurable key: policy could then suppress it');
+}
+for (const part of ['handles', 'records']) {
+  if (typeof DISCLOSURE[part] !== 'string' || DISCLOSURE[part].length < 40) {
+    problems.push(`DISCLOSURE.${part} is missing or too short to be a real disclosure`);
+  }
+}
+if (!helpSource.includes('DISCLOSURE.records')) {
+  problems.push('help.js no longer renders DISCLOSURE.records');
+}
+if (!optionsSource.includes('DISCLOSURE.handles')) {
+  problems.push('options.js no longer renders DISCLOSURE.handles');
+}
+const storeListing = readFileSync(new URL('../docs/store-listing.md', import.meta.url), 'utf8');
+if (!/Web browsing activity/.test(storeListing)) {
+  problems.push('docs/store-listing.md no longer names the Web browsing activity disclosure');
 }
 
 if (problems.length) {

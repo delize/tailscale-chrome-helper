@@ -1,7 +1,14 @@
 // Runs on the guidance page. Renders the configured copy, polls for connectivity, and
 // sends the user back to the app they originally asked for as soon as it responds.
 
-import { loadConfig, defaultStrings, applyTokens, matchesWatched, STATES } from './config.js';
+import {
+  loadConfig,
+  defaultStrings,
+  applyTokens,
+  matchesWatched,
+  STATES,
+  DISCLOSURE,
+} from './config.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -323,6 +330,14 @@ async function main() {
     el('pill').dataset.state = 'wait';
     el('pillText').textContent = config.checkingLabel;
   }
+
+  // Disclosure sits in the interface, not only in docs/privacy.md, because storing the
+  // hostnames of failed navigations is handling web browsing activity even though it never
+  // leaves the device. Rendered from a constant rather than config, so policy cannot blank
+  // it, and shown only while the setting that stores anything is actually on.
+  const disclosure = el('disclosure');
+  disclosure.textContent = config.recordUnwatchedHosts ? DISCLOSURE.records : '';
+  disclosure.hidden = !config.recordUnwatchedHosts;
 
   const detailBits = [];
   if (tokens.error) detailBits.push(tokens.error);

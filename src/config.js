@@ -57,6 +57,33 @@ export const DEFAULTS = {
   strings: {},
 };
 
+// Data-handling disclosure, shown in the interface rather than only in docs/privacy.md.
+//
+// Chrome Web Store policy requires an extension to disclose how it handles user data
+// "even when data is processed or stored locally on a user's device and is not
+// transmitted to external servers", and states the disclosure "must not be located only
+// in a privacy policy, terms of service, or similar document". Hostnames are named
+// explicitly in Google's definition of web browsing activity, so the guidance page and
+// the options page carry this text.
+//
+// Deliberately NOT a config key and NOT part of `strings`. An administrator must not be
+// able to blank the notice that tells people what is being recorded about them, and a
+// disclosure that policy can suppress is not a disclosure. Everything else on these pages
+// is overridable. This is the one thing that is not.
+export const DISCLOSURE = {
+  // True on every install, with every optional setting off. The extension is told the
+  // address of each failed navigation and uses it. Under Google's definition that is
+  // handling web browsing activity, whether or not anything is written down.
+  handles:
+    'This extension is told the address of pages that fail to load, and uses it to decide ' +
+    'whether to show guidance. It stores none of them and sends none of them anywhere.',
+  // Additionally true only while recordUnwatchedHosts is on.
+  records:
+    'Your organisation is recording failed connections to other tailnets on this device, ' +
+    'so it can see which ones people are trying to reach. Only hostnames ending in ts.net ' +
+    'are recorded, only when the connection failed, and they are not sent anywhere.',
+};
+
 export const STATES = [
   'tailscaleOff',
   'captivePortal',

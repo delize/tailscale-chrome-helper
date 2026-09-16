@@ -1,7 +1,13 @@
 // Settings for an unmanaged install. Anything an administrator has set through policy
 // wins and is shown locked, which is the whole point of enrolling an extension.
 
-import { loadConfig, invalidateConfig, STATES, defaultStrings } from './config.js';
+import {
+  loadConfig,
+  invalidateConfig,
+  STATES,
+  defaultStrings,
+  DISCLOSURE,
+} from './config.js';
 
 const BOOL_FIELDS = ['enabled', 'showInstallLink'];
 
@@ -58,6 +64,13 @@ async function render() {
   lock(el('watchedSuffixes'), managedKeys.has('watchedSuffixes'));
 
   fillPreviewStates(config);
+
+  // Disclosure, rendered from a constant rather than from config so that no policy value
+  // can blank it. The first line is true of every install; the second appears only while
+  // the setting that actually stores hostnames is on.
+  el('disclosureHandles').textContent = DISCLOSURE.handles;
+  el('disclosureRecords').textContent = DISCLOSURE.records;
+  el('disclosureRecords').hidden = !config.recordUnwatchedHosts;
 
   if (managedKeys.size) el('managedNote').hidden = false;
 

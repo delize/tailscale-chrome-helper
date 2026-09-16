@@ -41,6 +41,12 @@ export const DEFAULTS = {
   openAppLabel: 'Open Tailscale',
   connectHelpUrl: '',
   controlUrl: 'http://connectivitycheck.gstatic.com/generate_204',
+  // A second, independent endpoint, consulted only when controlUrl fails. One failed
+  // request to one host is not evidence that a device has no network: a firewall or a DNS
+  // filter that blocks just this endpoint used to look exactly like a severed cable, and
+  // the user was told to check a cable that was fine. Deliberately a different operator
+  // from the default controlUrl, since two Google hosts tend to be blocked together.
+  controlUrlFallback: 'http://detectportal.firefox.com/success.txt',
   portalUrl: 'http://neverssl.com/',
   logoDataUrl: '',
   bannerDataUrl: '',
@@ -337,6 +343,7 @@ export const CLEANERS = {
   openAppLabel: (v) => cleanText(v, 40),
   connectHelpUrl: cleanLink,
   controlUrl: cleanProbeUrl,
+  controlUrlFallback: cleanProbeUrl,
   portalUrl: cleanProbeUrl,
   logoDataUrl: cleanImage,
   // A banner spans the card, so it gets a larger cap than the logo.

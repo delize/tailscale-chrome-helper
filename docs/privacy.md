@@ -63,7 +63,7 @@ extension and cannot be removed by policy.
 
 ## What it transmits
 
-Exactly two kinds of outbound request, neither carrying user data:
+Three kinds of outbound request, none of them carrying user data:
 
 1. **A local connectivity check** to `http://100.100.100.100/`, Tailscale's magic IP. This
    never leaves the device. The response is read only to confirm it is the Tailscale page
@@ -76,6 +76,15 @@ Exactly two kinds of outbound request, neither carrying user data:
 
    While a guidance page is open it repeats on the poll interval, 2.5 seconds by default,
    and stops when the page is closed or the poll timeout is reached.
+3. **A second connectivity check**, by default `http://detectportal.firefox.com/success.txt`,
+   made **only when the first one fails**. It carries no identifiers and no reference to the
+   site you were visiting, and nothing is read from the response beyond whether anything
+   answered at all.
+
+   It exists so that a network blocking one endpoint is not reported to you as having no
+   network. Without it, a firewall rule looked identical to an unplugged cable. An
+   administrator can point it at their own endpoint, and it is never contacted when the
+   first check succeeds.
 
 The address of the site you failed to reach is handled entirely inside the browser. It is
 passed to the extension's own guidance page so it can offer a retry, and it goes nowhere

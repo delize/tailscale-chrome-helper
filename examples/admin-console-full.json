@@ -18,6 +18,7 @@
   "openAppLabel": "Open Tailscale",
   "connectHelpUrl": "https://wiki.acme.com/tailscale",
   "controlUrl": "http://connectivitycheck.gstatic.com/generate_204",
+  "controlUrlFallback": "http://detectportal.firefox.com/success.txt",
   "portalUrl": "http://neverssl.com/",
   "logoDataUrl": "",
   "bannerDataUrl": "",

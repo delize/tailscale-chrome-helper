@@ -132,6 +132,7 @@ Policy changes apply without a browser restart.
 | `openAppLabel` | string | `Open Tailscale` | Text of that link. |
 | `connectHelpUrl` | string | unset | Link to your own runbook. |
 | `controlUrl` | string | `http://connectivitycheck.gstatic.com/generate_204` | Captive portal probe. Must be **http**, see below. |
+| `controlUrlFallback` | string | `http://detectportal.firefox.com/success.txt` | Second opinion, only if `controlUrl` fails. Must be **http**. Use a different provider. |
 | `portalUrl` | string | `http://neverssl.com/` | Plaintext page offered as a button to force a portal sign-in screen. |
 | `logoDataUrl` | string | unset | `data:image/...` only, max 256 KB. Remote URLs are rejected. |
 | `bannerDataUrl` | string | unset | Banner across the top of the card. `data:image/...` only, max 1 MB. |
@@ -303,6 +304,29 @@ Tailscale ACLs and sharing policy. A browser extension is the wrong layer, and t
 this setting as a control would leave you believing something is blocked when it is not.
 
 ### Captive portals, and why the probe is plaintext
+
+### Why there are two connectivity endpoints
+
+`controlUrlFallback` is checked only when `controlUrl` fails, and only to answer one
+question: is there a network at all?
+
+One failed request to one host is weak evidence. A firewall or a DNS filter that blocks
+just the connectivity endpoint fails in exactly the same way as an unplugged cable, and the
+extension used to read that as "this device is offline" and tell the user to check their
+wifi. Their actual problem was that Tailscale was not connected, and the page was pointing
+them at the wrong thing entirely.
+
+So a single failure is no longer enough. If the fallback answers, there is a network, and
+the user is classified as `tailscaleOff`. Only when both fail is the device called offline.
+`navigator.onLine` short-circuits ahead of both, because when the browser reports no route
+at all that is worth trusting and worth skipping two timeouts for.
+
+Point the two at **different operators**. The default pairs Google with Mozilla precisely
+because a network that blocks one Google endpoint usually blocks the rest. Setting both to
+your own infrastructure defeats the purpose unless they fail independently.
+
+The fallback is fetched `no-cors`, so it needs no host permission and its response is
+opaque. That is deliberate: the only thing read from it is whether anything answered.
 
 `controlUrl` must be an `http://` URL. This is not an oversight. A captive portal cannot
 intercept an `https://` request without presenting a certificate the browser rejects, so

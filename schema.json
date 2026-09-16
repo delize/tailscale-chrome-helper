@@ -92,6 +92,10 @@
       "description": "Plaintext http endpoint used to tell 'Tailscale is off' apart from 'this network needs a captive portal sign-in'. Must be http, not https: a portal cannot intercept https without a certificate the browser rejects, so an https probe can only ever report offline. Should answer 204 with no body. Fetched with no user data attached.",
       "type": "string"
     },
+    "controlUrlFallback": {
+      "type": "string",
+      "description": "Second connectivity endpoint, checked only if controlUrl fails. Prevents a network that blocks just controlUrl from being reported to the user as no network at all. Use a different provider from controlUrl. Plain http."
+    },
     "portalUrl": {
       "title": "Portal sign-in helper link",
       "description": "Plaintext http page offered as a button when a captive portal is detected. Opening any non-https page is what forces the network's sign-in screen to appear. Defaults to http://neverssl.com/, which exists for this purpose.",

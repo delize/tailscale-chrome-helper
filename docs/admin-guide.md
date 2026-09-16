@@ -133,9 +133,9 @@ Policy changes apply without a browser restart.
 | `connectHelpUrl` | string | unset | Link to your own runbook. |
 | `controlUrl` | string | `http://connectivitycheck.gstatic.com/generate_204` | Captive portal probe. Must be **http**, see below. |
 | `portalUrl` | string | `http://neverssl.com/` | Plaintext page offered as a button to force a portal sign-in screen. |
-| `logoDataUrl` | string | unset | `data:image/...` only, max 256 KB. Remote URLs are rejected. |
-| `bannerDataUrl` | string | unset | Banner across the top of the card. `data:image/...` only, max 1 MB. |
-| `accentColor` | string | unset | Button and link colour, 3 or 6 digit hex such as `#4a63d8`. |
+| `logoDataUrl` | string | unset | Logo above the headline. `data:image/...` only, max 256 KB. See below. |
+| `bannerDataUrl` | string | unset | Banner across the top of the card. `data:image/...` only, max 1 MB. See below. |
+| `accentColor` | string | unset | Button and link colour, 3 or 6 digit hex such as `#4a63d8`. See below. |
 | `probeTimeoutMs` | integer | `1500` | Clamped to 200 to 30000. |
 | `targetTimeoutMs` | integer | `4000` | Clamped to 200 to 30000. |
 | `pollIntervalMs` | integer | `2500` | Clamped to 500 to 60000. |
@@ -157,7 +157,7 @@ typo never leaves the extension watching nothing silently.
 Leaving this unset watches all of `ts.net`, which is reasonable for a small deployment but
 means the page also appears for tailnets that are not yours.
 
-### Branding
+### Branding and theming
 
 Three keys control appearance. All of them are optional and the page looks deliberate
 without any of them.
@@ -170,18 +170,65 @@ without any of them.
 }
 ```
 
-Images must be `data:` URIs rather than URLs. That is not an arbitrary restriction: this
-page is shown to someone whose network is already failing, so anything it had to fetch
-would be the thing most likely to be missing. Encode the file rather than linking it.
+#### Why images must be encoded, not linked
+
+A remote URL is rejected. This page is shown to someone whose network is already failing,
+so anything it had to fetch is the thing most likely to be missing. On the `offline` state
+there is definitely no network, and on `captivePortal` every request is being intercepted,
+so a linked logo would be broken in exactly the two states where it is most visible.
+
+A remote URL is also a beacon. Every view of the error page would become a request to that
+host carrying an IP address, a timestamp and a user agent, which turns a page that sends
+nothing into per-incident tracking. That is easy to do by accident, simply by hosting the
+logo on a CDN.
+
+#### Making a data URI
 
 ```sh
-# macOS or Linux
+# macOS
 printf 'data:image/png;base64,%s' "$(base64 -i logo.png | tr -d '\n')"
+
+# Linux (GNU coreutils)
+printf 'data:image/png;base64,%s' "$(base64 -w0 logo.png)"
 ```
 
-`accentColor` accepts plain hex only, not `rgb()` or named colours. The page is dark, so
-pick something that reads against a dark background. The rest of the palette is fixed,
-which keeps a mis-set colour from producing an unreadable page.
+The newline stripping is not optional. `base64` wraps its output by default and a data URI
+containing newlines fails validation, which shows up as `Not set` at `chrome://policy`
+rather than as an error.
+
+Use the right media type for the file: `image/png`, `image/jpeg`, `image/gif`,
+`image/webp` or `image/svg+xml`.
+
+#### How big these actually are
+
+Base64 adds a flat third to the file size. Measured examples:
+
+| Image | File | As a data URI |
+|---|---|---|
+| Wordmark PNG, 200x60 | 0.7 KB | 0.9 KB |
+| Wordmark PNG, 800x240 | 1.8 KB | 2.4 KB |
+| Wordmark SVG | 0.2 KB | 0.3 KB |
+| Photographic banner 1600x200, JPEG quality 82 | 221 KB | 294 KB |
+| Photographic banner 1600x200, lossless PNG | 939 KB | **1252 KB, rejected** |
+
+A logo has about a hundred times more headroom than it needs, so the 256 KB cap will not
+trouble a normal one. The 1 MB banner cap has one realistic failure mode: a photographic
+banner saved as lossless PNG. Save photographs as JPEG or WebP and flat-colour artwork as
+PNG or SVG, and neither cap is reachable.
+
+The caps exist because managed storage is read every time the service worker wakes, which
+is on every failed navigation, so an oversized value is paid for repeatedly on a page whose
+whole design goal is to appear instantly.
+
+#### Colour
+
+`accentColor` sets the primary button and link colour. It accepts plain hex only, three or
+six digits, not `rgb()` and not named colours. The page is dark, so pick something that
+reads against a dark background.
+
+The rest of the palette is deliberately fixed. Exposing the full set would let one mis-set
+value produce an unreadable page, on a screen someone has reached precisely because
+something is already wrong.
 
 ### Identity providers and SSO
 

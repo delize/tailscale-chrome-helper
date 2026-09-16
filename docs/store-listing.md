@@ -43,6 +43,17 @@ Nominative use of a trademark to state compatibility is ordinarily fine. The ris
 the combination of name, reconstructed UI and a similar icon, so the disclaimer is cheap
 insurance rather than an admission.
 
+The notice deliberately does **not** say the icons belong to Tailscale. That phrasing gets
+suggested often and it is wrong: no Tailscale asset is used anywhere in this repository, so
+attributing artwork to them would concede a fact that is not true and invite the question
+of which asset was licensed. The accurate claim is narrower and stronger. Their trademark
+is acknowledged, the work is stated to be original, and the residual risk is named rather
+than papered over.
+
+If a reviewer or Tailscale objects, the icon is the thing to change, not the illustration
+or the name. Nominative use allows only as much of a mark as is needed, and a nine-dot grid
+in our own toolbar icon is the one place this takes more than it strictly needs.
+
 ## Data disclosure
 
 Tick **Web browsing activity**. Do not tick anything else.

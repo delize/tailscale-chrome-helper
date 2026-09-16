@@ -306,6 +306,12 @@ async function main() {
     document.documentElement.style.setProperty('--accent', config.accentColor);
   }
 
+  // Both of these must stay as <img> src, and that is a security property rather than a
+  // layout choice. The validator accepts data:image/svg+xml, and SVG can carry script. In
+  // an <img> it renders inertly and the script never runs. Inlining either one, or moving
+  // it to an <object>, <embed> or a background on an element built from innerHTML, would
+  // turn an administrator-supplied string into script execution on a privileged extension
+  // page that can read managed storage.
   if (config.bannerDataUrl) {
     const banner = el('banner');
     banner.src = config.bannerDataUrl;

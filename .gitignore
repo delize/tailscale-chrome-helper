@@ -10,3 +10,11 @@ dev-config.json
 
 # Screenshot and trace artifacts left by browser-driving review agents.
 .playwright-mcp/
+
+# Verified CRX upload signing key. Losing it means a week with Chrome Web Store support,
+# and committing it means anyone can sign a package as you. Ignored here rather than by a
+# .gitignore inside the directory, because that file would match its own '*' rule, never be
+# committed, and so protect nothing in a fresh clone.
+.crx-key/
+*.pem
+!examples/*.pem

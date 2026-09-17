@@ -218,6 +218,7 @@ For support with Tailscale itself, go to Tailscale.
 - [Privacy policy](docs/privacy.md) — handled, stored and transmitted, kept separate
 - [Store listing](docs/store-listing.md) — the Web Store answers and the reasoning
 - [Reading host counts](docs/host-counts.md) — the optional local tally, for fleet tooling
+- [Releasing](docs/releasing.md) — how publishing works, and its one-time setup
 - [Decisions](docs/decisions/) — architecture decision records
 
 ```

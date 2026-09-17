@@ -1,0 +1,156 @@
+name: Cut a release
+
+# Beta first, always. This builds the package, tags it, publishes a GitHub prerelease, and
+# submits the item to the Chrome Web Store as a STAGED_PUBLISH: it goes through review and
+# is then held rather than going live. Promoting it to everyone is a separate, manual run of
+# "Promote a release", which needs no second review.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, e.g. 1.0.1. Must be higher than the current one
+        type: string
+        required: true
+      skip_store:
+        description: Tag and build only, do not touch the Chrome Web Store
+        type: boolean
+        default: false
+
+permissions:
+  contents: write        # tag, commit the version bump, create the release
+  id-token: write        # mint the Google credential, no stored key
+  attestations: write    # sign the package we built
+
+concurrency:
+  group: chrome-web-store
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: chrome-web-store
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check the version is sane and new
+        run: |
+          v="${{ inputs.version }}"
+          if ! printf '%s' "$v" | grep -Eq '^[0-9]+(\.[0-9]+){1,3}$'; then
+            echo "::error::$v is not a Chrome extension version (1 to 4 dot-separated integers)"
+            exit 1
+          fi
+          if git rev-parse "v$v" >/dev/null 2>&1; then
+            echo "::error::tag v$v already exists"
+            exit 1
+          fi
+          current=$(node -p "require('./manifest.json').version")
+          # The store rejects a version that is not higher than the published one, so catch
+          # it here rather than after review.
+          #
+          # Equal to the manifest is allowed, and that is not laxness. The manifest carries
+          # the version being prepared, so the first release of 1.0.0 is a release of exactly
+          # what the manifest already says. What must never repeat is a released version, and
+          # the tag check above is what enforces that.
+          highest=$(printf '%s\n%s\n' "$current" "$v" | sort -V | tail -1)
+          if [ "$highest" != "$v" ]; then
+            echo "::error::$v is lower than the current version $current"
+            exit 1
+          fi
+          if [ "$current" = "$v" ]; then
+            echo "releasing $v, which the manifest already carries"
+          else
+            echo "releasing $current -> $v"
+          fi
+
+      - name: Set the version
+        run: |
+          node -e '
+            const fs = require("fs");
+            for (const f of ["manifest.json", "package.json"]) {
+              const j = JSON.parse(fs.readFileSync(f, "utf8"));
+              j.version = "${{ inputs.version }}";
+              fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");
+            }
+          '
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json package.json
+          git commit -m "Release ${{ inputs.version }}"
+          git tag "v${{ inputs.version }}"
+          git push origin HEAD:main --follow-tags
+
+      # After the bump, so the manifest that ships is the manifest that was checked.
+      - name: Verify
+        run: npm run verify
+
+      - name: Build the package
+        id: build
+        run: |
+          npm run package
+          zip=$(ls -1 tailnet-connection-helper-*.zip | head -1)
+          echo "zip=$zip" >> "$GITHUB_OUTPUT"
+
+      # Inspects the archive the way the store will. A manifest that references a file the
+      # zip does not contain works perfectly when loaded from a local directory, because the
+      # file is on disk, and fails only once packaged. Cheaper to catch here than to spend a
+      # review cycle on.
+      - name: Check the package
+        run: node tools/check_package.mjs "${{ steps.build.outputs.zip }}"
+
+      # Signs the zip with this workflow's identity, so anyone can later verify the package
+      # in the store came from this repository, this commit and this workflow.
+      - name: Attest the package
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ steps.build.outputs.zip }}
+
+      - name: Create the GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ inputs.version }}" \
+            "${{ steps.build.outputs.zip }}" \
+            --title "v${{ inputs.version }}" \
+            --generate-notes \
+            --prerelease \
+            --notes-start-tag "$(git describe --tags --abbrev=0 "v${{ inputs.version }}^" 2>/dev/null || echo '')" \
+            || gh release create "v${{ inputs.version }}" \
+                 "${{ steps.build.outputs.zip }}" \
+                 --title "v${{ inputs.version }}" --generate-notes --prerelease
+
+      - id: auth
+        if: ${{ !inputs.skip_store }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+
+      - name: Upload and stage in the Chrome Web Store
+        if: ${{ !inputs.skip_store }}
+        env:
+          CWS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          PUBLISHER_ID: ${{ vars.PUBLISHER_ID }}
+          EXTENSION_ID: ${{ vars.EXTENSION_ID }}
+          CWS_ZIP: ${{ steps.build.outputs.zip }}
+          CWS_PUBLISH: 'true'
+          # Reviewed, then held. Promoting it later needs no second review.
+          CWS_PUBLISH_TYPE: STAGED_PUBLISH
+        run: node tools/cws_publish.mjs
+
+      - name: Summary
+        run: |
+          {
+            echo "### v${{ inputs.version }} staged"
+            echo
+            echo "- GitHub prerelease created with the signed package attached"
+            echo "- Chrome Web Store: submitted for review as STAGED_PUBLISH"
+            echo
+            echo "Once review passes, run **Promote a release** to release it to everyone."
+            echo "That does not need a second review."
+          } >> "$GITHUB_STEP_SUMMARY"

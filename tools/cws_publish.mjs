@@ -17,9 +17,10 @@ const POLL_MS = Number(process.env.CWS_POLL_MS || 10000);
 
 const {
   CWS_TOKEN,
-  CWS_PUBLISHER_ID,
-  CWS_ITEM_ID,
+  PUBLISHER_ID,
+  EXTENSION_ID,
   CWS_ZIP,
+  CWS_UPLOAD = 'true',
   CWS_PUBLISH = 'false',
   CWS_PUBLISH_TYPE = 'DEFAULT_PUBLISH',
   CWS_DEPLOY_PERCENTAGE = '',
@@ -35,11 +36,11 @@ function need(name, value) {
 }
 
 need('CWS_TOKEN', CWS_TOKEN);
-need('CWS_PUBLISHER_ID', CWS_PUBLISHER_ID);
-need('CWS_ITEM_ID', CWS_ITEM_ID);
-need('CWS_ZIP', CWS_ZIP);
+need('PUBLISHER_ID', PUBLISHER_ID);
+need('EXTENSION_ID', EXTENSION_ID);
+if (CWS_UPLOAD === 'true') need('CWS_ZIP', CWS_ZIP);
 
-const item = `publishers/${CWS_PUBLISHER_ID}/items/${CWS_ITEM_ID}`;
+const item = `publishers/${PUBLISHER_ID}/items/${EXTENSION_ID}`;
 const auth = { Authorization: `Bearer ${CWS_TOKEN}` };
 
 // Never print the token, and never print a header block that might contain it.
@@ -124,7 +125,14 @@ async function publish() {
   }
 }
 
-await upload();
+// Promotion re-publishes an already-reviewed, staged revision. No new package is involved,
+// so uploading one would submit something different for review and defeat the point.
+if (CWS_UPLOAD === 'true') {
+  await upload();
+} else {
+  console.log('skipping upload: promoting the revision already staged in the store');
+}
+
 if (CWS_PUBLISH === 'true') {
   await publish();
 } else {

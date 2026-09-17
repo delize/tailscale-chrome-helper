@@ -19,7 +19,9 @@ on:
         options: [STAGED_PUBLISH, DEFAULT_PUBLISH]
         default: STAGED_PUBLISH
       skip_store:
-        description: Tag and build only, do not touch the Chrome Web Store
+        description: >-
+          Build, sign and attest only. Touches nothing permanent: no commit, no tag, no
+          GitHub release, no store upload. Use it to rehearse.
         type: boolean
         default: false
 
@@ -142,51 +144,21 @@ jobs:
           crx="tailnet-connection-helper-${{ inputs.version }}.crx"
           mv dist.crx "$crx"
           echo "crx=$crx" >> "$GITHUB_OUTPUT"
-          # Confirm it really is a CRX before anything downstream trusts it.
-          head -c 4 "$crx" | grep -q 'Cr24' || { echo "::error::packed file is not a CRX"; exit 1; }
           echo "packed $crx ($(stat -c%s "$crx") bytes)"
+          # The Cr24 contract is defined once, in the script that uploads. This step used to
+          # reimplement it with `head -c 4`, which disagreed with the script on a four-byte
+          # file and had nothing keeping the two in step.
+          node tools/check_package.mjs "$crx"
 
       - name: Remove the signing key
         if: always()
         run: rm -f signing-key.pem
-
-      # Only now, with a signed package in hand, does anything become permanent. Everything
-      # above is reversible by re-running; everything below leaves a trace.
-      - name: Commit the version, and tag it
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add manifest.json package.json
-          # On a first release the manifest already carries the version being released, so
-          # there is genuinely nothing to commit. git commit exits 1 for that, which under
-          # bash -e would fail the job. An empty diff is a valid state here, not an error.
-          if git diff --cached --quiet; then
-            echo "manifest already at ${{ inputs.version }}, nothing to commit"
-          else
-            git commit -m "Release ${{ inputs.version }}"
-          fi
-          # Annotated, and pushed by name. --follow-tags pushes annotated tags only, so a
-          # lightweight tag never reached origin and gh release create then invented its own
-          # at whatever main pointed to.
-          git tag -a "v${{ inputs.version }}" -m "Release ${{ inputs.version }}"
-          # Atomic, so a tag never lands without its commit.
-          git push --atomic origin HEAD:main "refs/tags/v${{ inputs.version }}"
 
       # Attests the CRX rather than the zip, because the CRX is what reaches the store.
       - name: Attest the package
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: ${{ steps.crx.outputs.crx }}
-
-      - name: Create the GitHub prerelease
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "v${{ inputs.version }}" \
-            "${{ steps.crx.outputs.crx }}" \
-            --title "v${{ inputs.version }}" \
-            --generate-notes \
-            --prerelease
 
       - id: auth
         if: ${{ !inputs.skip_store }}
@@ -212,6 +184,52 @@ jobs:
           # which is the right choice when nobody is going to come back and promote it.
           CWS_PUBLISH_TYPE: ${{ inputs.publish_type }}
         run: node tools/cws_publish.mjs
+
+      # Only now, with the package accepted by the store, does anything become permanent.
+      # This used to run before the upload, so a store failure left a pushed tag and a
+      # bumped main with nothing shipped, and the version gate then refused the retry.
+      #
+      # Known limitation: the attestation above names the checked-out commit, which is main
+      # before this bump, so it attests "this workflow in this repo built these bytes"
+      # rather than pinning a commit whose manifest carries the released version. That is
+      # the useful claim; pinning the commit would need the bump pushed before the build,
+      # which reintroduces the failure this ordering exists to prevent.
+      - name: Commit the version, and tag it
+        if: ${{ !inputs.skip_store }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json package.json
+          # On a first release the manifest already carries the version being released, so
+          # there is genuinely nothing to commit. git commit exits 1 for that, which under
+          # bash -e would fail the job. An empty diff is a valid state here, not an error.
+          if git diff --cached --quiet; then
+            echo "manifest already at ${{ inputs.version }}, nothing to commit"
+          else
+            git commit -m "Release ${{ inputs.version }}"
+          fi
+          # Annotated, and pushed by name. --follow-tags pushes annotated tags only, so a
+          # lightweight tag never reached origin and gh release create then invented its own
+          # at whatever main pointed to.
+          git tag -a "v${{ inputs.version }}" -m "Release ${{ inputs.version }}"
+          # Atomic, so a tag never lands without its commit.
+          git push --atomic origin HEAD:main "refs/tags/v${{ inputs.version }}"
+
+      # After the store, deliberately. A store failure used to leave a pushed tag, a bumped
+      # main and a public prerelease with nothing in the store, and the version gate then
+      # refused the retry because the tag existed. Recovery meant deleting a tag and a
+      # published release by hand. The reversible step runs before the permanent one, which
+      # is the same reasoning that moved the commit and tag after the build.
+      - name: Create the GitHub prerelease
+        if: ${{ !inputs.skip_store }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ inputs.version }}" \
+            "${{ steps.crx.outputs.crx }}" \
+            --title "v${{ inputs.version }}" \
+            --generate-notes \
+            --prerelease
 
       - name: Summary
         run: |

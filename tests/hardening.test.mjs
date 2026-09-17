@@ -18,7 +18,7 @@ globalThis.chrome = {
     onChanged: { addListener: () => {} },
   },
   runtime: {
-    onMessage: { addListener: () => {} },
+    onMessage: { addListener: (fn) => (LISTENERS.onMessage = fn) },
     // Absolute, because showHelpPage builds a URL from it.
     getURL: (p) => 'chrome-extension://aaaabbbbccccddddeeeeffffgggghhhh/' + p,
   },
@@ -296,11 +296,16 @@ test('turning recording off deletes the record even across a worker restart', as
 
 test('the worker clears the record on startup, not only on a change event', () => {
   const src = readFileSync(new URL('../src/background.js', import.meta.url), 'utf8');
-  // Both paths must call it: a change event alone misses the case where the change
-  // happened while the worker was dead.
-  assert.match(src, /watchConfig\(\(\{ config \}\) => clearIfRecordingIsOff\(config\)\)/);
-  assert.match(src, /loadConfig\(\)\.then\(\(\{ config \}\) => clearIfRecordingIsOff\(config\)\)/);
+  // Both paths must call it: a change event alone misses a change made while the worker
+  // was dead, which is most of the time in MV3.
+  assert.match(src, /watchConfig\(\(resolved\) => clearIfRecordingIsOff\(resolved\)\)/);
+  assert.match(src, /loadConfig\(\)\.then\(\(resolved\) => clearIfRecordingIsOff\(resolved\)\)/);
   assert.ok(!src.includes('recordingWasOn'), 'no remembered previous state');
+  // And it must be gated on policy having actually set the key. Deleting on
+  // !recordUnwatchedHosts alone wiped the record whenever the managed read fell back to
+  // defaults, which tests/recording-delete.test.mjs covers behaviourally.
+  assert.match(src, /managedKeys\?\.has\('recordUnwatchedHosts'\)/);
+  assert.match(src, /rejected\?\.includes\('recordUnwatchedHosts'\)/);
 });
 
 // Counting used to happen before the page was shown, so an attempt that was then
@@ -361,4 +366,90 @@ test('a takeover that is shown does count', async () => {
   const { writes, shown } = await countingRun({ abandon: false });
   assert.equal(shown, 1, 'the page was shown');
   assert.ok(writes.includes('unwatchedHosts'), 'so the hit is recorded');
+});
+
+// Chrome's https-to-http fallback delivers two error events for one address. The guard and
+// the suppressor used to disagree about whether that was one navigation or two, and every
+// symptom below was a separate bug falling out of that disagreement. All four were
+// reproduced against the previous code before these were written.
+const FB = 'https://app.acme.ts.net/x';
+const FB_HTTP = 'http://app.acme.ts.net/x';
+const failAt = (tabId, url) => ({
+  tabId,
+  frameId: 0,
+  documentLifecycle: 'active',
+  error: 'net::ERR_NAME_NOT_RESOLVED',
+  url,
+});
+
+test('an https fallback takes the tab over once, not twice', async () => {
+  MANAGED = { watchedSuffixes: ['acme.ts.net'] };
+  invalidateConfig();
+  UPDATES.length = 0;
+
+  LISTENERS.onBeforeNavigate({ tabId: 91, frameId: 0, url: FB });
+  const first = LISTENERS.onErrorOccurred(failAt(91, FB));
+  LISTENERS.onBeforeNavigate({ tabId: 91, frameId: 0, url: FB_HTTP });
+  const second = LISTENERS.onErrorOccurred(failAt(91, FB_HTTP));
+  await Promise.all([first, second]);
+
+  assert.equal(UPDATES.length, 1, 'one navigation, one guidance page');
+});
+
+test('a second handler for the same navigation is refused synchronously', async () => {
+  // The suppressor cannot do this: it is read before a chain of awaits and claimed after
+  // the page is up, so both handlers read "not suppressed". Whether the double takeover
+  // happened depended on which storage read won, which made the bug intermittent.
+  MANAGED = { watchedSuffixes: ['acme.ts.net'] };
+  invalidateConfig();
+  UPDATES.length = 0;
+
+  LISTENERS.onBeforeNavigate({ tabId: 92, frameId: 0, url: FB });
+  // Started together, with no await between them, which is the interleaving that bit.
+  await Promise.all([
+    LISTENERS.onErrorOccurred(failAt(92, FB)),
+    LISTENERS.onErrorOccurred(failAt(92, FB)),
+  ]);
+
+  assert.equal(UPDATES.length, 1);
+});
+
+test('moving to a different path on the same host is the user leaving', async () => {
+  // sameHost() compared hostname only, which is wider than the fallback case it was for,
+  // so a user who navigated away was pulled back to guidance for the URL they left.
+  MANAGED = { watchedSuffixes: ['acme.ts.net'] };
+  invalidateConfig();
+  UPDATES.length = 0;
+
+  LISTENERS.onBeforeNavigate({ tabId: 93, frameId: 0, url: 'https://app.acme.ts.net/broken' });
+  const pending = LISTENERS.onErrorOccurred(failAt(93, 'https://app.acme.ts.net/broken'));
+  LISTENERS.onBeforeNavigate({ tabId: 93, frameId: 0, url: 'https://app.acme.ts.net/elsewhere' });
+  await pending;
+
+  assert.equal(UPDATES.length, 0, 'the user went somewhere else');
+});
+
+test('Retry after a fallback is not suppressed by the attempt the user never saw', async () => {
+  // The worst symptom: markShown held two keys, the page cleared only the one it was shown
+  // for, and the retry hit the other. The user got Chrome's raw error page, which is the
+  // exact failure this extension exists to prevent.
+  MANAGED = { watchedSuffixes: ['acme.ts.net'] };
+  invalidateConfig();
+  UPDATES.length = 0;
+
+  LISTENERS.onBeforeNavigate({ tabId: 94, frameId: 0, url: FB });
+  await Promise.all([
+    LISTENERS.onErrorOccurred(failAt(94, FB)),
+    LISTENERS.onErrorOccurred(failAt(94, FB_HTTP)),
+  ]);
+  assert.equal(UPDATES.length, 1, 'shown once');
+
+  // The guidance page clears its own slot immediately before navigating back.
+  await new Promise((resolve) => LISTENERS.onMessage({ type: 'retrying', url: FB_HTTP }, { tab: { id: 94 } }, resolve));
+
+  UPDATES.length = 0;
+  LISTENERS.onBeforeNavigate({ tabId: 94, frameId: 0, url: FB });
+  await LISTENERS.onErrorOccurred(failAt(94, FB));
+
+  assert.equal(UPDATES.length, 1, 'the retry still reaches guidance');
 });

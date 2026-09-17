@@ -5,7 +5,7 @@
 // Pass --zip to also produce the upload archive from the staged directory.
 
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -20,6 +20,7 @@ const INCLUDE = [
   'src/config.js',
   'src/suppression.js',
   'src/hostlog.js',
+  'src/navigation.js',
   'src/help.html',
   'src/help.css',
   'src/help.js',
@@ -100,6 +101,26 @@ for (const rel of INCLUDE.filter((e) => e.endsWith('.html'))) {
 
 const { version } = JSON.parse(readFileSync(join(ROOT, 'manifest.json')));
 console.log(`built dist/ — ${files} files, ${(bytes / 1024).toFixed(1)} KB, version ${version}`);
+
+// The manifest `key` pins the extension ID for an UNPACKED build, so a local load gets the
+// store's ID and one policy profile covers both. It is deliberately stripped from the
+// staged copy.
+//
+// The reason is the verified-upload signing key. `--pack-extension` derives the CRX's
+// internal crx_id from the key it signs with, which is the upload key, not this one. Ship
+// both and the package asserts two different identities: a crx_id from one key and a
+// manifest `key` naming another. The store re-signs with its own key anyway, so the field
+// buys nothing in the package and only creates a contradiction for a reviewer or a future
+// Chrome to object to.
+{
+  const staged = join(DIST, 'manifest.json');
+  const m = JSON.parse(readFileSync(staged, 'utf8'));
+  if (m.key) {
+    delete m.key;
+    writeFileSync(staged, JSON.stringify(m, null, 2) + '\n');
+    console.log('  stripped the manifest key from dist/ (it pins the ID for unpacked loads only)');
+  }
+}
 
 if (process.argv.includes('--zip')) {
   const out = `tailnet-connection-helper-${version}.zip`;

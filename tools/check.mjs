@@ -179,6 +179,48 @@ if (!/Web browsing activity/.test(storeListing)) {
   problems.push('docs/store-listing.md no longer names the Web browsing activity disclosure');
 }
 
+// dev_policy.py takes several extension IDs and must honour all of them on every platform.
+// It used to keep an `ext_id = ext_ids[0]` alias "so the single-ID paths read unchanged",
+// and the Windows branch was the one path never converted: it wrote a .reg for the first ID
+// and dropped the rest silently, after printing every ID as configured. There are no Python
+// tests, so this is the guard.
+const devPolicy = readFileSync(new URL('../tools/dev_policy.py', import.meta.url), 'utf8');
+if (/^\s*ext_id\s*=\s*ext_ids\[0\]/m.test(devPolicy)) {
+  problems.push('tools/dev_policy.py reintroduced the ext_id = ext_ids[0] alias');
+}
+for (const branch of ['Darwin', 'Linux', 'Windows']) {
+  const at = devPolicy.indexOf(`"${branch}"`);
+  if (at === -1) {
+    problems.push(`tools/dev_policy.py has no ${branch} branch`);
+    continue;
+  }
+  const next = ['Darwin', 'Linux', 'Windows']
+    .map((b) => devPolicy.indexOf(`"${b}"`, at + 1))
+    .filter((i) => i > -1);
+  const body = devPolicy.slice(at, next.length ? Math.min(...next) : devPolicy.length);
+  if (!body.includes('ext_ids')) {
+    problems.push(`tools/dev_policy.py ${branch} branch does not use ext_ids, so it honours one ID`);
+  }
+}
+
+// Every storage area the extension actually uses must be disclosed in the privacy policy.
+// chrome.storage.session held up to 100 hostnames by default and appeared in the store
+// submission while the published policy said "nothing about where you went is written
+// down", which is the discrepancy pointing in the worst direction: the form more
+// forthcoming than the policy a reviewer compares it against.
+const privacy = readFileSync(new URL('../docs/privacy.md', import.meta.url), 'utf8');
+const areas = new Set();
+for (const file of ['background.js', 'config.js', 'hostlog.js', 'help.js', 'options.js']) {
+  const src = readFileSync(new URL('../src/' + file, import.meta.url), 'utf8');
+  for (const m of src.matchAll(/chrome\.storage\.(\w+)/g)) areas.add(m[1]);
+}
+for (const area of areas) {
+  if (area === 'onChanged') continue;
+  if (!privacy.includes('chrome.storage.' + area)) {
+    problems.push(`docs/privacy.md does not disclose chrome.storage.${area}`);
+  }
+}
+
 if (problems.length) {
   console.error('FAIL');
   for (const p of problems) console.error('  - ' + p);

@@ -83,8 +83,6 @@ def main() -> int:
         ext_ids = [i.strip() for entry in args.id for i in entry.split(",") if i.strip()]
     else:
         ext_ids = [unpacked_extension_id(ext_dir)]
-    # Kept so the single-ID paths below read unchanged.
-    ext_id = ext_ids[0]
 
     if args.config:
         config = json.loads(Path(args.config).read_text())
@@ -246,24 +244,27 @@ def main() -> int:
 
     elif system == "Windows":
         target = out_dir / "policy.reg"
-        key = rf"HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome\3rdparty\extensions\{ext_id}\policy"
-        lines = ["Windows Registry Editor Version 5.00", "", f"[{key}]"]
-        for name, value in config.items():
-            if isinstance(value, bool):
-                lines.append(f'"{name}"=dword:{1 if value else 0:08x}')
-            elif isinstance(value, int):
-                lines.append(f'"{name}"=dword:{value:08x}')
-            elif isinstance(value, str):
-                lines.append(f'"{name}"="{value}"')
-            else:
-                # Lists and objects go in as JSON strings on Windows.
-                encoded = json.dumps(value).replace("\\", "\\\\").replace('"', '\\"')
-                lines.append(f'"{name}"="{encoded}"')
+        lines = ["Windows Registry Editor Version 5.00", ""]
+        # One key block per extension ID. This used to write only ext_ids[0] and drop the
+        # rest with no warning, while the script had already printed every ID as
+        # configured. A Windows contributor testing an unpacked build alongside a store
+        # install got exactly the half-applied policy the flag exists to prevent.
+        for eid in ext_ids:
+            lines.extend(_reg_block(eid, config))
         target.write_text("\r\n".join(lines) + "\r\n", encoding="utf-16")
         print(f"Wrote {target}")
         print()
-        print("Install it by running the .reg file as Administrator, then restart Chrome")
-        print("and check chrome://policy.")
+        print("Install it by double-clicking, or:")
+        print(f'  reg import "{target}"')
+        print()
+        print("Restart Chrome and check chrome://policy.")
+        print()
+        print("Remove it again:")
+        for eid in ext_ids:
+            print(
+                r"  reg delete "
+                rf'"HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome\3rdparty\extensions\{eid}" /f'
+            )
 
     else:
         print(f"Unsupported platform: {system}")
@@ -272,5 +273,24 @@ def main() -> int:
     return 0
 
 
+def _reg_block(ext_id, config):
+    """The registry lines for one extension ID. Windows does use the 3rdparty wrapper."""
+    key = rf"HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome\3rdparty\extensions\{ext_id}\policy"
+    lines = [f"[{key}]"]
+    for name, value in config.items():
+        if isinstance(value, bool):
+            lines.append(f'"{name}"=dword:{1 if value else 0:08x}')
+        elif isinstance(value, int):
+            lines.append(f'"{name}"=dword:{value:08x}')
+        elif isinstance(value, str):
+            lines.append(f'"{name}"="{value}"')
+        else:
+            # Lists and objects go in as JSON strings on Windows.
+            encoded = json.dumps(value).replace("\\", "\\\\").replace('"', '\\"')
+            lines.append(f'"{name}"="{encoded}"')
+    lines.append("")
+    return lines
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

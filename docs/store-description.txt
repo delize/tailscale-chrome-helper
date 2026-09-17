@@ -75,8 +75,8 @@ sign-in". The second is only contacted if the first fails.
 One optional setting, off by default, keeps a local count of failed visits to other
 tailnets so an administrator can see which ones people are trying to reach. It stores
 hostnames ending in ts.net only, never ordinary browsing, keeps at most 200, discards
-anything older than 90 days, deletes everything when the setting is turned off, and sends
-nothing anywhere. While it is on, the guidance page says so, and that notice cannot be
+entries older than 90 days whenever the record is next written, deletes everything when the
+setting is turned off, and sends nothing anywhere. While it is on, the guidance page says so, and that notice cannot be
 removed by policy.
 
 The full privacy policy is linked from this listing.

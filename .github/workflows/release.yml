@@ -50,12 +50,21 @@ jobs:
           current=$(node -p "require('./manifest.json').version")
           # The store rejects a version that is not higher than the published one, so catch
           # it here rather than after review.
+          #
+          # Equal to the manifest is allowed, and that is not laxness. The manifest carries
+          # the version being prepared, so the first release of 1.0.0 is a release of exactly
+          # what the manifest already says. What must never repeat is a released version, and
+          # the tag check above is what enforces that.
           highest=$(printf '%s\n%s\n' "$current" "$v" | sort -V | tail -1)
-          if [ "$highest" != "$v" ] || [ "$current" = "$v" ]; then
-            echo "::error::$v is not higher than the current version $current"
+          if [ "$highest" != "$v" ]; then
+            echo "::error::$v is lower than the current version $current"
             exit 1
           fi
-          echo "releasing $current -> $v"
+          if [ "$current" = "$v" ]; then
+            echo "releasing $v, which the manifest already carries"
+          else
+            echo "releasing $current -> $v"
+          fi
 
       - name: Set the version
         run: |

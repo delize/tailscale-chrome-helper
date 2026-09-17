@@ -1,99 +1,55 @@
-When someone opens a Tailscale app and the tunnel is down, Chrome shows "This site can't be
-reached" and an error code. Nothing on that page mentions Tailscale, so the person raises a
-ticket.
+When someone opens a Tailscale app and the tunnel is down, Chrome shows "This site can't be reached" and an error code. Nothing on that page mentions Tailscale, so the person raises a ticket.
 
-This extension replaces that page with one that names the cause, shows where the Tailscale
-client is on their machine, and sends them back to the app on its own once the connection
-returns. Most of the time nobody has to ask anyone anything.
+This extension replaces that page with one that names the cause, shows where the Tailscale client is on their machine, and sends them back to the app on its own once the connection returns. Most of the time nobody has to ask anyone anything.
 
 It is aimed at administrators who would rather their people unblocked themselves.
 
-
 WHAT IT WORKS OUT
 
-It does not show one generic message. It checks what actually went wrong and says something
-different for each cause, because "turn Tailscale on" is the wrong advice most of the time.
+It does not show one generic message. It checks what actually went wrong and says something different for each cause, because "turn Tailscale on" is the wrong advice most of the time.
 
-- Tailscale is not connected. The common case. Shows what the icon looks like in both
-  states, because it is faint while disconnected and easy to miss, and demonstrates the
-  toggle.
+- Tailscale is not connected. The common case. Shows what the icon looks like in both states, because it is faint while disconnected and easy to miss, and demonstrates the toggle.
 
-- This network needs a sign-in first. A hotel or cafe portal is intercepting traffic.
-  Telling someone to flip a toggle here wastes their time, so the page offers to open the
-  sign-in page instead.
+- This network needs a sign-in first. A hotel or cafe portal is intercepting traffic. Telling someone to flip a toggle here wastes their time, so the page offers to open the sign-in page instead.
 
-- The device is offline. There is no network at all. Tailscale being down is a symptom
-  rather than the cause, so the page leads with the wifi and drops the client illustration
-  entirely.
+- The device is offline. There is no network at all. Tailscale being down is a symptom rather than the cause, so the page leads with the wifi and drops the client illustration entirely.
 
-- The app is not answering. Tailscale is connected and the host still did not respond. This
-  is the one case where nothing the user does will help, so the support route appears
-  immediately rather than after a retry.
+- The app is not answering. Tailscale is connected and the host still did not respond. This is the one case where nothing the user does will help, so the support route appears immediately rather than after a retry.
 
-- That name does not resolve on your tailnet. Usually a typo, sometimes a device that is off
-  or was never shared. The page points at the device list rather than the toggle, and
-  deliberately does not tell the user to report it.
+- That name does not resolve on your tailnet. Usually a typo, sometimes a device that is off or was never shared. The page points at the device list rather than the toggle, and deliberately does not tell the user to report it.
 
-- That address is on a different tailnet. Offers the corrected address, and a way past it,
-  because a suggestion you cannot decline is an interception. Off by default.
+- That address is on a different tailnet. Offers the corrected address, and a way past it, because a suggestion you cannot decline is an interception. Off by default.
 
-While the page is open it keeps checking, and takes the user to the app the moment the
-connection comes back.
-
+While the page is open it keeps checking, and takes the user to the app the moment the connection comes back.
 
 FOR ADMINISTRATORS
 
-Everything a user reads comes from Chrome policy, so one extension serves any organisation
-and there is nothing to fork or rebuild. The smallest useful configuration is three values:
-your company name, your tailnet, and a support link.
+Everything a user reads comes from Chrome policy, so one extension serves any organisation and there is nothing to fork or rebuild. The smallest useful configuration is three values: your company name, your tailnet, and a support link.
 
-There are 29 settings in total, covering a logo, a banner, an accent colour, the probe
-timings, and every line of copy on every screen, so the wording can be yours rather than
-ours. All of them are optional and the page is deliberate without any of them.
+There are 29 settings in total, covering a logo, a banner, an accent colour, the probe timings, and every line of copy on every screen, so the wording can be yours rather than ours. All of them are optional and the page is deliberate without any of them.
 
-Which domains it acts on is a policy value too. Point it at your own tailnet and it ignores
-everything else, including other people's tailnets.
+Which domains it acts on is a policy value too. Point it at your own tailnet and it ignores everything else, including other people's tailnets.
 
-Ready-made policy files for the Admin console, macOS, Windows and Linux ship with the
-project, along with a guide to checking a value actually applied.
-
+Ready-made policy files for the Admin console, macOS, Windows and Linux ship with the project, along with a guide to checking a value actually applied.
 
 PRIVACY
 
-This extension has no analytics, no telemetry, no error reporting and no backend. It never
-creates an account and it identifies nobody.
+This extension has no analytics, no telemetry, no error reporting and no backend. It never creates an account and it identifies nobody.
 
-It is told the address of navigations that fail, because that is the whole feature, and it
-transmits none of them. It holds no host permission for any website, so it cannot read page
-content, cookies, form data, or anything typed into a page.
+It is told the address of navigations that fail, because that is the whole feature, and it transmits none of them. It holds no host permission for any website, so it cannot read page content, cookies, form data, or anything typed into a page.
 
-It makes three kinds of outbound request and none of them carries user data: a local check
-to Tailscale's own 100.100.100.100 address to see whether the client is running, and two
-public no-content endpoints used to tell "no network" apart from "this network wants a
-sign-in". The second is only contacted if the first fails.
+It makes three kinds of outbound request and none of them carries user data: a local check to Tailscale's own 100.100.100.100 address to see whether the client is running, and two public no-content endpoints used to tell "no network" apart from "this network wants a sign-in". The second is only contacted if the first fails.
 
-One optional setting, off by default, keeps a local count of failed visits to other
-tailnets so an administrator can see which ones people are trying to reach. It stores
-hostnames ending in ts.net only, never ordinary browsing, keeps at most 200, discards
-entries older than 90 days whenever the record is next written, deletes everything when the
-setting is turned off, and sends nothing anywhere. While it is on, the guidance page says so, and that notice cannot be
-removed by policy.
+One optional setting, off by default, keeps a local count of failed visits to other tailnets so an administrator can see which ones people are trying to reach. It stores hostnames ending in ts.net only, never ordinary browsing, keeps at most 200, discards entries older than 90 days whenever the record is next written, deletes everything when the setting is turned off, and sends nothing anywhere. While it is on, the guidance page says so, and that notice cannot be removed by policy.
 
 The full privacy policy is linked from this listing.
 
-
 NOT AFFILIATED WITH TAILSCALE
 
-Tailscale is a trademark of Tailscale Inc. This project is independent and is not made,
-endorsed, or sponsored by Tailscale. No Tailscale artwork is used: the illustration of the
-client menu is drawn in HTML and CSS so it can show your own account details, and the
-extension's icon is original work.
+Tailscale is a trademark of Tailscale Inc. This project is independent and is not made, endorsed, or sponsored by Tailscale. No Tailscale artwork is used: the illustration of the client menu is drawn in HTML and CSS so it can show your own account details, and the extension's icon is original work.
 
 For help with Tailscale itself, go to Tailscale.
 
-
 OPEN SOURCE
 
-Apache-2.0. The source, the administrator guide and the design notes are on GitHub, so you
-can read exactly what it does before deploying it, and rebuild it under your own name if you
-would rather.
+Apache-2.0. The source, the administrator guide and the design notes are on GitHub, so you can read exactly what it does before deploying it, and rebuild it under your own name if you would rather.

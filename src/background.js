@@ -7,6 +7,7 @@
 
 import { loadConfig, watchConfig, matchesWatched } from './config.js';
 import { createSuppressor } from './suppression.js';
+import { navKey } from './navigation.js';
 import { recordUnwatchedHit, clearUnwatchedHits, isTailnetHost } from './hostlog.js';
 
 // Tailscale's Quad100 magic IP. It answers HTTP only while the client is connected, so
@@ -215,29 +216,31 @@ export async function classify(config, error) {
 // empty map after a restart fails open exactly as the old code did.
 const lastNavigation = new Map();
 
+// Navigations currently being handled, keyed the same way the suppressor is.
+//
+// The suppressor cannot do this job. It is consulted before a chain of awaits and claimed
+// only after the page is on screen, so two handlers for the same navigation both read
+// "not suppressed" and both proceed. Chrome's https-to-http fallback delivers exactly that:
+// two error events for one address, close enough together to interleave. Whether the
+// double takeover actually happened came down to which storage read finished first, so a
+// shared key alone made the bug intermittent rather than fixed.
+//
+// This set is checked and added synchronously in the error handler, before anything can
+// yield, which is what makes it a lock rather than another racing read.
+const inFlight = new Set();
+
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
   if (details.frameId !== 0) return;
-  // Only a real page navigation counts as the user going somewhere else. Chrome commits
-  // its own error page as chrome-error://chromewebdata/, and that lands in exactly the
-  // window this guard is read in, so counting it cancelled the takeover it was meant to
-  // protect. about:blank and this extension's own help page are not the user leaving
-  // either. Anything but http and https is ignored.
-  if (!details.url.startsWith('http://') && !details.url.startsWith('https://')) return;
-  lastNavigation.set(details.tabId, details.url);
+  // navKey returns null for anything that is not a real page navigation, which is how
+  // Chrome's own chrome-error:// commit stops counting as the user leaving. That commit
+  // lands inside the window this guard is read in, and counting it cancelled the very
+  // takeover the guard exists to protect.
+  const key = navKey(details.url);
+  if (key === null) return;
+  lastNavigation.set(details.tabId, key);
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => lastNavigation.delete(tabId));
-
-// Chrome upgrades a typed address to https and falls back to http, which arrives as a
-// second navigation to the same site. That is the browser retrying, not the user leaving.
-function sameHost(a, b) {
-  if (!a || !b) return false;
-  try {
-    return new URL(a).hostname === new URL(b).hostname;
-  } catch {
-    return false;
-  }
-}
 
 async function showHelpPage(tabId, targetUrl, extraParams, navAtError) {
   // Did the user go somewhere else while we were reading config?
@@ -248,8 +251,14 @@ async function showHelpPage(tabId, targetUrl, extraParams, navAtError) {
   // until the extension was reloaded. That is the bug this comment exists to prevent
   // coming back: the question is whether something changed SINCE the error, and answering
   // it needs both ends of the comparison.
+  // Three ways this is still the navigation we were called about. Nothing has changed
+  // since the error; or the tab is now on the target itself, which is Chrome's https
+  // fallback arriving; or the worker restarted and the map is empty, which fails open
+  // exactly as it did before this guard existed.
   const current = lastNavigation.get(tabId);
-  if (current !== navAtError && current !== targetUrl && !sameHost(current, targetUrl)) return false;
+  if (current !== undefined && current !== navAtError && current !== navKey(targetUrl)) {
+    return false;
+  }
 
   try {
     await chrome.tabs.get(tabId);
@@ -280,6 +289,18 @@ chrome.webNavigation.onErrorOccurred.addListener(async (details) => {
   // Synchronously, before anything can yield. Everything below is compared against this.
   const navAtError = lastNavigation.get(details.tabId);
 
+  // Also synchronous, and for the same reason. One navigation, one handler.
+  const flightKey = details.tabId + '|' + (navKey(details.url) ?? details.url);
+  if (inFlight.has(flightKey)) return;
+  inFlight.add(flightKey);
+  try {
+    await handleFailure(details, navAtError);
+  } finally {
+    inFlight.delete(flightKey);
+  }
+});
+
+async function handleFailure(details, navAtError) {
   const { config } = await loadConfig();
   if (!config.enabled) return;
 
@@ -304,8 +325,11 @@ chrome.webNavigation.onErrorOccurred.addListener(async (details) => {
   // attempt that was then abandoned inflated a number an administrator acts on, and
   // claiming the suppression slot for a page that never appeared made the next retry
   // silently do nothing as well.
-  const recordShown = async () => {
-    suppressor.markShown(details.tabId, details.url, config.suppressMs);
+  // Not async: there is nothing to await. It was async with both callers awaiting it,
+  // which told a reader the storage write was sequenced when the comment below says the
+  // opposite.
+  const recordShown = () => {
+    suppressor.markShown(details.tabId, details.url);
     // Fire and forget: the page is already up and a storage write must not delay it.
     if (!watched && config.recordUnwatchedHosts) recordUnwatchedHit(details.url);
   };
@@ -322,7 +346,7 @@ chrome.webNavigation.onErrorOccurred.addListener(async (details) => {
         navAtError
       )
     ) {
-      await recordShown();
+      recordShown();
     }
     return;
   }
@@ -333,9 +357,9 @@ chrome.webNavigation.onErrorOccurred.addListener(async (details) => {
   // three seconds. The guidance page renders immediately and asks for the classification
   // itself, which it already does on every poll.
   if (await showHelpPage(details.tabId, details.url, { error: details.error }, navAtError)) {
-    await recordShown();
+    recordShown();
   }
-});
+}
 
 // The guidance page asks the worker to probe rather than fetching Quad100 itself, so the
 // check works regardless of page-level cross-origin rules.
@@ -390,8 +414,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 //
 // Asking "is it off, and is there anything left?" needs no memory at all, is idempotent,
 // and gives the same answer however the worker got here.
-function clearIfRecordingIsOff(config) {
-  if (!config.recordUnwatchedHosts) clearUnwatchedHits();
+// Deletes the local host record when an administrator turns recording off, and only then.
+//
+// `!config.recordUnwatchedHosts` is not that condition. It is also true when the managed
+// read failed, when policy has not populated yet (Chrome's policy provider initialises
+// asynchronously, so an early worker wake on a managed device sees an empty managed store),
+// and when the administrator's value was rejected by our stricter cleaner. In all three the
+// config falls back to DEFAULTS where it is false, and the action taken on that reading is
+// an irreversible delete of data the administrator was collecting.
+//
+// So the predicate is narrower: policy must have set the key, the value must have been
+// usable, and it must be false. An earlier version required an observed true-to-false
+// transition, which could not delete on a bad read but missed a change the worker slept
+// through; this keeps both properties without remembering anything.
+async function clearIfRecordingIsOff({ config, managedKeys, rejected }) {
+  if (config.recordUnwatchedHosts) return;
+  if (!managedKeys?.has('recordUnwatchedHosts')) return;
+  if (rejected?.includes('recordUnwatchedHosts')) return;
+  await clearUnwatchedHits();
 }
-watchConfig(({ config }) => clearIfRecordingIsOff(config));
-loadConfig().then(({ config }) => clearIfRecordingIsOff(config));
+
+watchConfig((resolved) => clearIfRecordingIsOff(resolved));
+loadConfig().then((resolved) => clearIfRecordingIsOff(resolved));

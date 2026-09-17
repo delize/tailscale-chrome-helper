@@ -71,6 +71,11 @@ jobs:
           CWS_UPLOAD: 'false'
           CWS_PUBLISH: 'true'
           CWS_PUBLISH_TYPE: DEFAULT_PUBLISH
+          # Without this the version above was decoration: it was compared against itself
+          # and used to look up a tag, and the store then released whatever revision it
+          # happened to have staged. The script now reads the staged revision's version and
+          # refuses if it is not this one.
+          CWS_EXPECT_VERSION: ${{ inputs.version }}
         run: node tools/cws_publish.mjs
 
       - name: Mark the GitHub release as latest

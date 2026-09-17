@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "Tailnet Connection Helper",
   "version": "1.0.1",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApJQF8cMS2dN2Z1IuoRHJa/G/8Z84hAZLq6Cxwq9/aZx2WKqy/XWmFciuNVKqxO23YC9cGZXbfR453j2k+FmhHYZOnex0tllxf9A6JE8CzUjyh2bRSQo03QplKcPhSAQqczgGkemO1hIe9iW1FWwhFQfVTQuPpVzIC1RdkFJMAj2Ri45vOlaialTdrO5PIPWlEIyQZR1F1mUOrI73+6Sj88OL5v0dVXXt6LuMtIsKvCvH3mUFXMCFWsUN8tTcgLLqDgEyU5RC/yAYMSq07IKCEulsYYA2q8FIaN0z0O2vRVo9/lc2MXGxb97hPMSfoDnZh55F9z2MxeqgyuwRXaKIoQIDAQAB",
   "description": "Unofficial. Replaces Chrome's error page with connection guidance when a Tailscale tailnet app is unreachable.",
   "minimum_chrome_version": "106",
   "permissions": [

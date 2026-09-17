@@ -75,29 +75,37 @@ value sits plainly visible in the variables list.
 
 ### 6. Signing, and what is actually signed
 
-The store takes a **ZIP**, not a signed CRX, and it does the CRX signing itself with its own
-key. A developer private key is never uploaded and never needs to exist for store
-distribution. The `.pem` that Chrome's **Pack extension** button produces belongs to a
-different channel entirely: self-hosting a `.crx` on your own server, where you sign it
-because no store is doing it for you.
+This item is opted in to **verified CRX uploads**, so the store accepts only a CRX signed
+with the key registered against it. That is not the Chrome Web Store default, and it is
+worth being clear about which of three keys does what, because they are easy to conflate:
 
-So there is no private key to protect here, which removes a whole class of risk rather than
-leaving it unmanaged. The two things that can be secured are the credential used to upload,
-and the provenance of what gets uploaded.
+| Key | Who holds it | What it decides |
+|---|---|---|
+| The item's own key | Google | The extension ID, `eopiofke…`. Shown under **Public key** in the dashboard. Not ours and not changeable |
+| The verified-upload key | Us, `CRX_PRIVATE_KEY` | Nothing about identity. It proves an upload came from us |
+| The `key` field in `manifest.json` | Us, public | The ID of an **unpacked local** build only |
 
-The credential is handled by federation: no key exists, and the token lives minutes.
+The `manifest.json` `key` is the item's own public key, so a local unpacked load takes the
+store's ID and one policy profile covers both the local build and the store install. It is
+**stripped from the packaged build** by `tools/build.mjs`, deliberately: `--pack-extension`
+derives the CRX's internal id from the key it signs with, which is the upload key, so
+shipping both would have the package assert two different identities. The store re-signs
+with its own key anyway.
 
-Provenance is handled by `actions/attest-build-provenance`, which signs the zip with this
-workflow's own identity before it is uploaded. Anyone can then verify that the package came
-from this repository, this commit and this workflow:
+Losing the verified-upload key means contacting CWS support, and replacement takes up to a
+week. It exists in two places: the `CRX_PRIVATE_KEY` secret, and wherever you saved it.
+
+#### Verifying provenance
+
+`release.yml` attests the **CRX**, which is the artefact that reaches the store:
 
 ```sh
-gh attestation verify tailnet-connection-helper-1.0.0.zip --repo OWNER/REPO
+gh attestation verify tailnet-connection-helper-1.0.1.crx --repo OWNER/REPO
 ```
 
-That is a stronger statement than a developer key would make. A `.pem` proves only that
-whoever holds the file signed the package; an attestation names the source commit and the
-workflow that built it.
+That is a stronger statement than a signing key alone makes. A key proves whoever holds it
+signed the package; an attestation names the commit and the workflow that built it, so a
+package uploaded by someone with dashboard access but not repository access fails.
 
 ### 7. An environment gate, recommended
 

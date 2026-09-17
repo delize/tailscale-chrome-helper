@@ -43,10 +43,16 @@ In Chrome's extension storage, on this device:
 
 - Settings an administrator applied through Chrome policy, which are read-only.
 - Settings you entered on the options page, in `chrome.storage.sync`.
-- A per-tab count of failed attempts for a given address, in `sessionStorage`, so a repeat
-  failure can offer a support link. It is discarded when the tab closes.
+- A per-tab count of failed attempts for a given address, in the guidance page's own
+  `sessionStorage`, so a repeat failure can offer a support link. It is discarded when the
+  tab closes.
+- **Hostnames you chose to continue to anyway**, in `chrome.storage.session`. When the page
+  offers a corrected address and you decide you meant the one you typed, that hostname is
+  remembered so it stops asking for the rest of the browsing session. At most 100 are kept,
+  they are discarded when the browser closes, and they are never transmitted.
 
-By default nothing about where you went is written down.
+Apart from that last one, which only records a choice you made, nothing about where you went
+is written down by default.
 
 **If an administrator turns on `recordUnwatchedHosts`**, which is off by default, the
 extension additionally keeps a count of failed navigations to tailnet hosts outside the

@@ -16,9 +16,45 @@ if (!zip) {
 }
 
 // unzip -Z1 lists entries without extracting, and is present on every runner.
-const names = execFileSync('unzip', ['-Z1', zip], { encoding: 'utf8' }).trim().split('\n');
-const read = (name) =>
-  execFileSync('unzip', ['-p', zip, name], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+// A CRX is a signed header followed by a ZIP, so unzip reads it directly. Checking the
+// magic here means the Cr24 contract is defined once, in one language, rather than
+// reimplemented in a workflow step that could drift.
+const head = readFileSync(zip).subarray(0, 4).toString('latin1');
+const isCrx = head === 'Cr24';
+if (zip.endsWith('.crx') && !isCrx) {
+  console.error(`${zip} is named .crx but does not start with Cr24`);
+  process.exit(1);
+}
+if (isCrx) console.log(`  [PASS] signed CRX (Cr24 magic present)`);
+
+// unzip exits 1 with "extra bytes at beginning" on a CRX, because the signed header sits in
+// front of the archive. That is expected rather than an error, and it still lists every
+// entry correctly, so the listing is taken from stdout either way. Treat an empty listing
+// as the real failure.
+function listEntries(path) {
+  try {
+    return execFileSync('unzip', ['-Z1', path], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  } catch (err) {
+    if (err.stdout && err.stdout.trim()) return err.stdout;
+    console.error(`cannot read ${path} as an archive`);
+    console.error(err.stderr || err.message);
+    process.exit(1);
+  }
+}
+
+const names = listEntries(zip).trim().split('\n').filter((n) => n && !n.endsWith('/'));
+const read = (name) => {
+  try {
+    return execFileSync('unzip', ['-p', zip, name], {
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch (err) {
+    if (err.stdout) return err.stdout;
+    throw err;
+  }
+};
 
 const problems = [];
 const checks = [];

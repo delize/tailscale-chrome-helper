@@ -30,7 +30,12 @@ jobs:
     runs-on: ubuntu-latest
     environment: chrome-web-store
     steps:
+      # Full history and tags. With the default depth of 1 no tags are fetched, so the
+      # duplicate-tag guard below would report every tag as missing and happily re-release
+      # a version that already exists.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -79,9 +84,20 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add manifest.json package.json
-          git commit -m "Release ${{ inputs.version }}"
-          git tag "v${{ inputs.version }}"
-          git push origin HEAD:main --follow-tags
+          # On a first release the manifest already carries the version being released, so
+          # there is genuinely nothing to commit. git commit exits 1 for that, which under
+          # bash -e failed the whole job. An empty diff is a valid state here, not an error.
+          if git diff --cached --quiet; then
+            echo "manifest already at ${{ inputs.version }}, nothing to commit"
+          else
+            git commit -m "Release ${{ inputs.version }}"
+            git push origin HEAD:main
+          fi
+          # Annotated, and pushed by name. --follow-tags pushes annotated tags only, so a
+          # lightweight tag never reached origin and gh release create then invented its own
+          # at whatever main pointed to.
+          git tag -a "v${{ inputs.version }}" -m "Release ${{ inputs.version }}"
+          git push origin "refs/tags/v${{ inputs.version }}"
 
       # After the bump, so the manifest that ships is the manifest that was checked.
       - name: Verify
@@ -116,11 +132,7 @@ jobs:
             "${{ steps.build.outputs.zip }}" \
             --title "v${{ inputs.version }}" \
             --generate-notes \
-            --prerelease \
-            --notes-start-tag "$(git describe --tags --abbrev=0 "v${{ inputs.version }}^" 2>/dev/null || echo '')" \
-            || gh release create "v${{ inputs.version }}" \
-                 "${{ steps.build.outputs.zip }}" \
-                 --title "v${{ inputs.version }}" --generate-notes --prerelease
+            --prerelease
 
       - id: auth
         if: ${{ !inputs.skip_store }}

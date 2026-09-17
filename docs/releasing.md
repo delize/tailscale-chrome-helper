@@ -45,14 +45,47 @@ publisher and a personal publisher are configured separately.
 None of these are secrets. They are identifiers, and keeping them as variables rather than
 secrets means the logs stay readable when something goes wrong.
 
-| Variable | Value |
-|---|---|
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github-oidc` |
-| `GCP_SERVICE_ACCOUNT` | `cws-publisher@PROJECT_ID.iam.gserviceaccount.com` |
-| `CWS_PUBLISHER_ID` | The publisher ID from the dashboard URL |
-| `CWS_ITEM_ID` | The extension ID, 32 lowercase letters |
+| Name | Kind | Value |
+|---|---|---|
+| `WIF_PROVIDER` | secret | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github-oidc` |
+| `WIF_SERVICE_ACCOUNT` | secret | `cws-publisher@PROJECT_ID.iam.gserviceaccount.com` |
+| `PUBLISHER_ID` | secret | The publisher ID from the dashboard URL |
+| `EXTENSION_ID` | variable | The extension ID, 32 lowercase letters |
 
-### 6. An environment gate, recommended
+None of these four are sensitive in the cryptographic sense. A federation provider path, a
+service account address and a pair of store identifiers all appear in URLs, logs and
+manifests, and none of them grants anything on its own: access comes from the identity
+federation binding, which is scoped to this repository. They are held as secrets because
+that is the house style, at the cost of masked values making a failed run harder to read.
+`EXTENSION_ID` stays a variable because it is the one you will want to see in a log.
+
+### 6. Signing, and what is actually signed
+
+The store takes a **ZIP**, not a signed CRX, and it does the CRX signing itself with its own
+key. A developer private key is never uploaded and never needs to exist for store
+distribution. The `.pem` that Chrome's **Pack extension** button produces belongs to a
+different channel entirely: self-hosting a `.crx` on your own server, where you sign it
+because no store is doing it for you.
+
+So there is no private key to protect here, which removes a whole class of risk rather than
+leaving it unmanaged. The two things that can be secured are the credential used to upload,
+and the provenance of what gets uploaded.
+
+The credential is handled by federation: no key exists, and the token lives minutes.
+
+Provenance is handled by `actions/attest-build-provenance`, which signs the zip with this
+workflow's own identity before it is uploaded. Anyone can then verify that the package came
+from this repository, this commit and this workflow:
+
+```sh
+gh attestation verify tailnet-connection-helper-1.0.0.zip --repo OWNER/REPO
+```
+
+That is a stronger statement than a developer key would make. A `.pem` proves only that
+whoever holds the file signed the package; an attestation names the source commit and the
+workflow that built it.
+
+### 7. An environment gate, recommended
 
 The workflow targets an environment named `chrome-web-store`. Create it under Settings,
 Environments and add yourself as a required reviewer. Every publish then waits for a human,

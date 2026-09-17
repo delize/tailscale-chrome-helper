@@ -56,8 +56,8 @@ function run(base, env = {}) {
           CWS_POLL_MS: '5',
           CWS_TIMEOUT_MS: '3000',
           CWS_TOKEN: 'test-token-must-not-be-logged',
-          CWS_PUBLISHER_ID: 'pub123',
-          CWS_ITEM_ID: 'item456',
+          PUBLISHER_ID: 'pub123',
+          EXTENSION_ID: 'item456',
           CWS_ZIP: zip,
           CWS_PUBLISH: 'false',
           ...env,
@@ -195,9 +195,9 @@ test('an HTTP error fails the job and never echoes the token', async () => {
 
 test('a missing setting fails before any network call', async () => {
   // Port 1 would refuse a connection, so reaching the network at all would look different.
-  const r = await run('http://127.0.0.1:1', { CWS_ITEM_ID: '' });
+  const r = await run('http://127.0.0.1:1', { EXTENSION_ID: '' });
   assert.equal(r.code, 1);
-  assert.match(r.stderr, /missing CWS_ITEM_ID/);
+  assert.match(r.stderr, /missing EXTENSION_ID/);
 });
 
 test('a deploy percentage is sent as deployInfos, not invented', async () => {

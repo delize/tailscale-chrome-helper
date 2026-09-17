@@ -17,8 +17,8 @@ const POLL_MS = Number(process.env.CWS_POLL_MS || 10000);
 
 const {
   CWS_TOKEN,
-  CWS_PUBLISHER_ID,
-  CWS_ITEM_ID,
+  PUBLISHER_ID,
+  EXTENSION_ID,
   CWS_ZIP,
   CWS_PUBLISH = 'false',
   CWS_PUBLISH_TYPE = 'DEFAULT_PUBLISH',
@@ -35,11 +35,11 @@ function need(name, value) {
 }
 
 need('CWS_TOKEN', CWS_TOKEN);
-need('CWS_PUBLISHER_ID', CWS_PUBLISHER_ID);
-need('CWS_ITEM_ID', CWS_ITEM_ID);
+need('PUBLISHER_ID', PUBLISHER_ID);
+need('EXTENSION_ID', EXTENSION_ID);
 need('CWS_ZIP', CWS_ZIP);
 
-const item = `publishers/${CWS_PUBLISHER_ID}/items/${CWS_ITEM_ID}`;
+const item = `publishers/${PUBLISHER_ID}/items/${EXTENSION_ID}`;
 const auth = { Authorization: `Bearer ${CWS_TOKEN}` };
 
 // Never print the token, and never print a header block that might contain it.

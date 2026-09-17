@@ -27,6 +27,9 @@ on:
 permissions:
   contents: read
   id-token: write
+  # Lets the job sign the package it just built, so the artifact that reached the store can
+  # be verified later against this exact commit and workflow.
+  attestations: write
 
 # One publish at a time. Two runs racing each other would have the store reviewing a
 # revision nobody chose.
@@ -79,16 +82,25 @@ jobs:
       - id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+
+      # Signs the zip with this workflow's identity. Anyone can later check that the package
+      # in the store came from this repository, this commit and this workflow, rather than
+      # from someone with dashboard access. This is the part of "secure upload" that is
+      # actually available: the store signs the CRX itself and never takes a developer key.
+      - name: Attest the package
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ steps.build.outputs.zip }}
 
       - name: Upload and publish
         env:
           CWS_TOKEN: ${{ steps.auth.outputs.access_token }}
-          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
-          CWS_ITEM_ID: ${{ vars.CWS_ITEM_ID }}
+          PUBLISHER_ID: ${{ secrets.PUBLISHER_ID }}
+          EXTENSION_ID: ${{ vars.EXTENSION_ID }}
           CWS_ZIP: ${{ steps.build.outputs.zip }}
           # A release publishes. A manual run publishes only when asked.
           CWS_PUBLISH: ${{ github.event_name == 'release' || inputs.publish }}

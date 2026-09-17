@@ -1,0 +1,105 @@
+name: Publish to the Chrome Web Store
+
+# Two ways in. A GitHub release publishes; a manual run defaults to uploading a draft and
+# stopping, because the draft is reviewable in the dashboard and a publish is not easily
+# taken back once it reaches users.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish after uploading, rather than leaving a draft
+        type: boolean
+        default: false
+      publish_type:
+        description: DEFAULT_PUBLISH goes live on approval, STAGED_PUBLISH waits for you
+        type: choice
+        options: [DEFAULT_PUBLISH, STAGED_PUBLISH]
+        default: DEFAULT_PUBLISH
+      deploy_percentage:
+        description: Initial rollout percentage, 1 to 100. Blank means the store default
+        type: string
+        default: ''
+
+# Least privilege. id-token is what lets the job mint a Google credential without a stored
+# key; contents: read is enough to check out and build.
+permissions:
+  contents: read
+  id-token: write
+
+# One publish at a time. Two runs racing each other would have the store reviewing a
+# revision nobody chose.
+concurrency:
+  group: chrome-web-store
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # Point this at a protected environment to require an approval before anything reaches
+    # the store. Worth doing once the listing is public.
+    environment: chrome-web-store
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The same gate used locally. Chrome silently discards a policy value that fails
+      # schema validation, so a broken schema would otherwise reach users and surface only
+      # as "Not set" in someone's browser.
+      - name: Verify
+        run: npm run verify
+
+      # A release tagged v1.2.0 that ships manifest version 1.1.0 is a mistake worth
+      # catching before the store has it, not after.
+      - name: Check the manifest version matches the tag
+        if: github.event_name == 'release'
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          manifest=$(node -p "require('./manifest.json').version")
+          echo "tag: $tag, manifest: $manifest"
+          if [ "$tag" != "$manifest" ]; then
+            echo "::error::release tag $tag does not match manifest version $manifest"
+            exit 1
+          fi
+
+      - name: Build the package
+        id: build
+        run: |
+          npm run package
+          zip=$(ls -1 tailnet-connection-helper-*.zip | head -1)
+          echo "zip=$zip" >> "$GITHUB_OUTPUT"
+          echo "built $zip"
+
+      # Short-lived credentials from Workload Identity Federation. No service account key
+      # exists, so there is nothing in this repository to leak or rotate.
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+
+      - name: Upload and publish
+        env:
+          CWS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          CWS_ITEM_ID: ${{ vars.CWS_ITEM_ID }}
+          CWS_ZIP: ${{ steps.build.outputs.zip }}
+          # A release publishes. A manual run publishes only when asked.
+          CWS_PUBLISH: ${{ github.event_name == 'release' || inputs.publish }}
+          CWS_PUBLISH_TYPE: ${{ inputs.publish_type || 'DEFAULT_PUBLISH' }}
+          CWS_DEPLOY_PERCENTAGE: ${{ inputs.deploy_percentage }}
+        run: node tools/cws_publish.mjs
+
+      - name: Keep the uploaded package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.build.outputs.zip }}
+          path: ${{ steps.build.outputs.zip }}
+          if-no-files-found: error

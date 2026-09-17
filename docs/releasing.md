@@ -47,18 +47,31 @@ secrets means the logs stay readable when something goes wrong.
 
 | Name | Kind | Value |
 |---|---|---|
-| `WIF_PROVIDER` | variable | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github-oidc` |
-| `WIF_SERVICE_ACCOUNT` | variable | `cws-publisher@PROJECT_ID.iam.gserviceaccount.com` |
-| `PUBLISHER_ID` | variable | The publisher ID from the dashboard URL |
+| `WIF_PROVIDER` | **secret** | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github-oidc` |
+| `WIF_SERVICE_ACCOUNT` | **secret** | `cws-publisher@PROJECT_ID.iam.gserviceaccount.com` |
+| `PUBLISHER_ID` | **secret** | The publisher ID from the dashboard URL |
 | `EXTENSION_ID` | variable | The extension ID, 32 lowercase letters |
 
-None of these four are sensitive in the cryptographic sense. A federation provider path, a
-service account address and a pair of store identifiers all appear in URLs, logs and
-manifests, and none of them grants anything on its own: access comes from the identity
-federation binding, which is scoped to this repository. All four are held as variables, so a failed run says which value was wrong instead of
-printing three masked blanks. Referencing a variable through `secrets.` yields an empty
-string rather than an error, which fails at the auth step while `gh variable list` plainly
-shows the value, so the kind has to match the reference.
+The split matters on a public repository, and for a reason that is not "these are
+credentials", because they are not. None of them authenticates anything on its own.
+
+Actions logs on a public repository are publicly readable, and variables appear in them
+unmasked. The federation provider path and the service account address are precisely the two
+strings an attacker needs to attempt impersonation, so they are only inert while the
+federation binding stays correctly scoped to this repository. Publishing them would mean a
+single future mistake in that binding turns into an exploitable one. Masking them is
+defence in depth, not secrecy theatre.
+
+`PUBLISHER_ID` is a secret for a weaker reason: it is an account identifier that is not
+otherwise public, and there is no benefit to volunteering it.
+
+`EXTENSION_ID` stays a variable because it is public by construction. It appears in every
+store URL, on every user's `chrome://extensions` page, and in the policy examples in this
+guide. Hiding it would buy nothing and make a failed run harder to read.
+
+**Kind has to match the reference.** `${{ secrets.NAME }}` for a value stored as a variable
+yields an empty string rather than an error, so the job fails at the auth step while the
+value sits plainly visible in the variables list.
 
 ### 6. Signing, and what is actually signed
 

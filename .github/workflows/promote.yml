@@ -57,15 +57,15 @@ jobs:
       - id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/chromewebstore
 
       - name: Release to everyone
         env:
           CWS_TOKEN: ${{ steps.auth.outputs.access_token }}
-          PUBLISHER_ID: ${{ vars.PUBLISHER_ID }}
+          PUBLISHER_ID: ${{ secrets.PUBLISHER_ID }}
           EXTENSION_ID: ${{ vars.EXTENSION_ID }}
           # No upload: the staged revision is already in the store and already reviewed.
           CWS_UPLOAD: 'false'

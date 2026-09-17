@@ -302,3 +302,63 @@ test('the worker clears the record on startup, not only on a change event', () =
   assert.match(src, /loadConfig\(\)\.then\(\(\{ config \}\) => clearIfRecordingIsOff\(config\)\)/);
   assert.ok(!src.includes('recordingWasOn'), 'no remembered previous state');
 });
+
+// Counting used to happen before the page was shown, so an attempt that was then
+// abandoned still incremented a number an administrator acts on. Nothing caught that when
+// the fix was first written, which is the reason this test exists.
+async function countingRun({ abandon }) {
+  const writes = [];
+  const priorLocal = globalThis.chrome.storage.local;
+  globalThis.chrome.storage.local = {
+    get: (_k, cb) => cb({}),
+    set: (value, cb) => {
+      writes.push(Object.keys(value)[0]);
+      cb && cb();
+    },
+    remove: (_k, cb) => cb && cb(),
+  };
+  try {
+    MANAGED = {
+      watchedSuffixes: ['acme.ts.net'],
+      suggestCorrectTailnet: true,
+      recordUnwatchedHosts: true,
+    };
+    invalidateConfig();
+    UPDATES.length = 0;
+
+    const tabId = abandon ? 88 : 89;
+    const foreign = 'https://app.contoso.ts.net/';
+    LISTENERS.onBeforeNavigate({ tabId, frameId: 0, url: foreign });
+    const pending = LISTENERS.onErrorOccurred({
+      tabId,
+      frameId: 0,
+      documentLifecycle: 'active',
+      error: 'net::ERR_NAME_NOT_RESOLVED',
+      url: foreign,
+    });
+    if (abandon) {
+      LISTENERS.onBeforeNavigate({ tabId, frameId: 0, url: 'https://elsewhere.example/' });
+    }
+    await pending;
+    // The write is deliberately not awaited by the worker, so let it settle.
+    await new Promise((r) => setTimeout(r, 5));
+    return { writes, shown: UPDATES.length };
+  } finally {
+    globalThis.chrome.storage.local = priorLocal;
+  }
+}
+
+test('an abandoned takeover does not inflate the host count', async () => {
+  const { writes, shown } = await countingRun({ abandon: true });
+  assert.equal(shown, 0, 'nothing was shown');
+  assert.ok(
+    !writes.includes('unwatchedHosts'),
+    'and nothing was counted: the user never saw a page about this host'
+  );
+});
+
+test('a takeover that is shown does count', async () => {
+  const { writes, shown } = await countingRun({ abandon: false });
+  assert.equal(shown, 1, 'the page was shown');
+  assert.ok(writes.includes('unwatchedHosts'), 'so the hit is recorded');
+});

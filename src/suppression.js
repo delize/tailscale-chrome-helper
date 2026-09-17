@@ -13,13 +13,20 @@ export function createSuppressor({ now = () => Date.now(), maxEntries = 100 } = 
   const key = (tabId, url) => tabId + '|' + url;
 
   return {
-    // True when this pair was shown within the window. Recording happens here too, so the
-    // caller treats it as a claim on the slot rather than a pure question.
+    // A pure question. It used to record as well, which meant a takeover that was later
+    // abandoned still claimed the slot: the page never appeared, and the retry seconds
+    // later was suppressed because the first attempt had marked itself as shown. Asking
+    // and claiming are now separate, and the claim belongs to whoever actually showed
+    // something.
     shouldSuppress(tabId, url, suppressMs) {
+      const at = seen.get(key(tabId, url));
+      return at !== undefined && now() - at < suppressMs;
+    },
+
+    // Called once the guidance page is genuinely on screen.
+    markShown(tabId, url, suppressMs) {
       const k = key(tabId, url);
-      const at = seen.get(k);
       const t = now();
-      if (at !== undefined && t - at < suppressMs) return true;
       seen.set(k, t);
 
       if (seen.size > maxEntries) {
@@ -34,7 +41,6 @@ export function createSuppressor({ now = () => Date.now(), maxEntries = 100 } = 
           for (const [entry] of ordered.slice(0, seen.size - maxEntries)) seen.delete(entry);
         }
       }
-      return false;
     },
 
     clear(tabId, url) {

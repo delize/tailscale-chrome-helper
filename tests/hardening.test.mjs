@@ -181,9 +181,14 @@ test('a tab that moved on during the config read is left alone', async () => {
   invalidateConfig();
   UPDATES.length = 0;
 
-  // The user typed something else after the navigation failed.
+  // The user was on the failed address, then typed something else DURING the config read.
+  // Ordering is the whole point: a navigation before the error is the baseline, not
+  // someone leaving, and conflating the two is what made Chrome's own error-page commit
+  // look like the user moving on.
+  LISTENERS.onBeforeNavigate({ tabId: 22, frameId: 0, url: TARGET });
+  const pending = LISTENERS.onErrorOccurred({ ...FAILURE, tabId: 22 });
   LISTENERS.onBeforeNavigate({ tabId: 22, frameId: 0, url: 'https://elsewhere.example/' });
-  await LISTENERS.onErrorOccurred({ ...FAILURE, tabId: 22 });
+  await pending;
 
   assert.equal(UPDATES.length, 0, 'no takeover: the user is somewhere else now');
 });
@@ -207,4 +212,153 @@ test('closing a tab does not leak its navigation record', () => {
   // Nothing observable to assert beyond it not throwing, but the listener must exist and
   // accept a bare tabId, which is the shape Chrome actually sends.
   assert.ok(typeof LISTENERS.onRemoved === 'function');
+});
+
+test('Chrome committing its own error page does not cancel the takeover', async () => {
+  MANAGED = { watchedSuffixes: ['acme.ts.net'] };
+  invalidateConfig();
+  UPDATES.length = 0;
+
+  LISTENERS.onBeforeNavigate({ tabId: 55, frameId: 0, url: TARGET });
+  const pending = LISTENERS.onErrorOccurred({ ...FAILURE, tabId: 55 });
+  // This is what Chrome actually does, and it lands inside the window the guard reads.
+  // Counting it meant the page never appeared and the tab stayed dead until the extension
+  // was reloaded, because the map has no expiry.
+  LISTENERS.onBeforeNavigate({ tabId: 55, frameId: 0, url: 'chrome-error://chromewebdata/' });
+  await pending;
+
+  assert.equal(UPDATES.length, 1, 'the guidance page still replaced the error page');
+});
+
+test('an https upgrade of the same address is the browser retrying, not the user leaving', async () => {
+  MANAGED = { watchedSuffixes: ['acme.ts.net'] };
+  invalidateConfig();
+  UPDATES.length = 0;
+
+  LISTENERS.onBeforeNavigate({ tabId: 66, frameId: 0, url: TARGET });
+  const pending = LISTENERS.onErrorOccurred({ ...FAILURE, tabId: 66 });
+  LISTENERS.onBeforeNavigate({ tabId: 66, frameId: 0, url: TARGET.replace('https://', 'http://') });
+  await pending;
+
+  assert.equal(UPDATES.length, 1, 'same host, so not a departure');
+});
+
+test('an abandoned takeover does not claim the suppression slot', async () => {
+  MANAGED = { watchedSuffixes: ['acme.ts.net'] };
+  invalidateConfig();
+  UPDATES.length = 0;
+
+  // First attempt is abandoned because the user really did navigate away.
+  LISTENERS.onBeforeNavigate({ tabId: 77, frameId: 0, url: TARGET });
+  let pending = LISTENERS.onErrorOccurred({ ...FAILURE, tabId: 77 });
+  LISTENERS.onBeforeNavigate({ tabId: 77, frameId: 0, url: 'https://elsewhere.example/' });
+  await pending;
+  assert.equal(UPDATES.length, 0, 'nothing shown, as intended');
+
+  // Coming straight back must still work. It used to be suppressed, because asking
+  // whether to suppress also claimed the slot for a page that never appeared.
+  LISTENERS.onBeforeNavigate({ tabId: 77, frameId: 0, url: TARGET });
+  pending = LISTENERS.onErrorOccurred({ ...FAILURE, tabId: 77 });
+  await pending;
+
+  assert.equal(UPDATES.length, 1, 'the retry is not suppressed by the abandoned attempt');
+});
+
+test('turning recording off deletes the record even across a worker restart', async () => {
+  // The bug: the old code remembered "recording used to be on" in a module variable. MV3
+  // kills an idle worker in about thirty seconds, so an administrator who turned the
+  // setting off while it was asleep got a worker that only ever saw "off", never observed
+  // the transition, and never deleted anything. privacy.md promises otherwise.
+  const removed = [];
+  const priorLocal = globalThis.chrome.storage.local;
+  globalThis.chrome.storage.local = {
+    ...priorLocal,
+    remove: (key, cb) => {
+      removed.push(key);
+      cb && cb();
+    },
+  };
+  try {
+    // A cold worker, started with the setting already off, having never seen it on.
+    MANAGED = { recordUnwatchedHosts: false };
+    invalidateConfig();
+    const { loadConfig } = await import('../src/config.js');
+    const { clearUnwatchedHits, STORAGE_KEY } = await import('../src/hostlog.js');
+    const { config } = await loadConfig({ force: true });
+
+    assert.equal(config.recordUnwatchedHosts, false);
+    await clearUnwatchedHits();
+    assert.ok(removed.includes(STORAGE_KEY), 'the record is deleted without remembering anything');
+  } finally {
+    globalThis.chrome.storage.local = priorLocal;
+  }
+});
+
+test('the worker clears the record on startup, not only on a change event', () => {
+  const src = readFileSync(new URL('../src/background.js', import.meta.url), 'utf8');
+  // Both paths must call it: a change event alone misses the case where the change
+  // happened while the worker was dead.
+  assert.match(src, /watchConfig\(\(\{ config \}\) => clearIfRecordingIsOff\(config\)\)/);
+  assert.match(src, /loadConfig\(\)\.then\(\(\{ config \}\) => clearIfRecordingIsOff\(config\)\)/);
+  assert.ok(!src.includes('recordingWasOn'), 'no remembered previous state');
+});
+
+// Counting used to happen before the page was shown, so an attempt that was then
+// abandoned still incremented a number an administrator acts on. Nothing caught that when
+// the fix was first written, which is the reason this test exists.
+async function countingRun({ abandon }) {
+  const writes = [];
+  const priorLocal = globalThis.chrome.storage.local;
+  globalThis.chrome.storage.local = {
+    get: (_k, cb) => cb({}),
+    set: (value, cb) => {
+      writes.push(Object.keys(value)[0]);
+      cb && cb();
+    },
+    remove: (_k, cb) => cb && cb(),
+  };
+  try {
+    MANAGED = {
+      watchedSuffixes: ['acme.ts.net'],
+      suggestCorrectTailnet: true,
+      recordUnwatchedHosts: true,
+    };
+    invalidateConfig();
+    UPDATES.length = 0;
+
+    const tabId = abandon ? 88 : 89;
+    const foreign = 'https://app.contoso.ts.net/';
+    LISTENERS.onBeforeNavigate({ tabId, frameId: 0, url: foreign });
+    const pending = LISTENERS.onErrorOccurred({
+      tabId,
+      frameId: 0,
+      documentLifecycle: 'active',
+      error: 'net::ERR_NAME_NOT_RESOLVED',
+      url: foreign,
+    });
+    if (abandon) {
+      LISTENERS.onBeforeNavigate({ tabId, frameId: 0, url: 'https://elsewhere.example/' });
+    }
+    await pending;
+    // The write is deliberately not awaited by the worker, so let it settle.
+    await new Promise((r) => setTimeout(r, 5));
+    return { writes, shown: UPDATES.length };
+  } finally {
+    globalThis.chrome.storage.local = priorLocal;
+  }
+}
+
+test('an abandoned takeover does not inflate the host count', async () => {
+  const { writes, shown } = await countingRun({ abandon: true });
+  assert.equal(shown, 0, 'nothing was shown');
+  assert.ok(
+    !writes.includes('unwatchedHosts'),
+    'and nothing was counted: the user never saw a page about this host'
+  );
+});
+
+test('a takeover that is shown does count', async () => {
+  const { writes, shown } = await countingRun({ abandon: false });
+  assert.equal(shown, 1, 'the page was shown');
+  assert.ok(writes.includes('unwatchedHosts'), 'so the hit is recorded');
 });

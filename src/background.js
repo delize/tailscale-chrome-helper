@@ -195,10 +195,9 @@ export async function classify(config, error) {
   return 'tailscaleOff';
 }
 
-// Classification takes up to two probe timeouts, so this runs seconds after the navigation
-// failed. In that window the user may have typed a different URL, hit Back, or closed the
-// tab, so the tab is re-checked before it is taken over and the update is never allowed to
-// reject into nothing.
+// The guidance page renders before classification, so this runs a few storage reads after
+// the navigation failed rather than seconds after. The window is small but it is not zero,
+// and the tab is re-checked before it is taken over.
 // The last top-level navigation seen per tab.
 //
 // This exists because the obvious check does not work. Tab.url and Tab.pendingUrl are, per
@@ -217,20 +216,45 @@ export async function classify(config, error) {
 const lastNavigation = new Map();
 
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
-  if (details.frameId === 0) lastNavigation.set(details.tabId, details.url);
+  if (details.frameId !== 0) return;
+  // Only a real page navigation counts as the user going somewhere else. Chrome commits
+  // its own error page as chrome-error://chromewebdata/, and that lands in exactly the
+  // window this guard is read in, so counting it cancelled the takeover it was meant to
+  // protect. about:blank and this extension's own help page are not the user leaving
+  // either. Anything but http and https is ignored.
+  if (!details.url.startsWith('http://') && !details.url.startsWith('https://')) return;
+  lastNavigation.set(details.tabId, details.url);
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => lastNavigation.delete(tabId));
 
-async function showHelpPage(tabId, targetUrl, extraParams) {
-  // The user typed something else while we were reading config. Leave them alone.
+// Chrome upgrades a typed address to https and falls back to http, which arrives as a
+// second navigation to the same site. That is the browser retrying, not the user leaving.
+function sameHost(a, b) {
+  if (!a || !b) return false;
+  try {
+    return new URL(a).hostname === new URL(b).hostname;
+  } catch {
+    return false;
+  }
+}
+
+async function showHelpPage(tabId, targetUrl, extraParams, navAtError) {
+  // Did the user go somewhere else while we were reading config?
+  //
+  // The baseline is captured synchronously when the error fires, not read fresh here.
+  // Comparing only against "the latest navigation" meant any event arriving in between
+  // looked like the user moving on, and because the map never expires the tab stayed dead
+  // until the extension was reloaded. That is the bug this comment exists to prevent
+  // coming back: the question is whether something changed SINCE the error, and answering
+  // it needs both ends of the comparison.
   const current = lastNavigation.get(tabId);
-  if (current !== undefined && current !== targetUrl) return;
+  if (current !== navAtError && current !== targetUrl && !sameHost(current, targetUrl)) return false;
 
   try {
     await chrome.tabs.get(tabId);
   } catch {
-    return; // Tab closed while we were probing.
+    return false; // Tab closed while we were probing.
   }
 
   const helpUrl = new URL(chrome.runtime.getURL('src/help.html'));
@@ -240,8 +264,10 @@ async function showHelpPage(tabId, targetUrl, extraParams) {
   }
   try {
     await chrome.tabs.update(tabId, { url: helpUrl.toString() });
+    return true;
   } catch {
     // The tab went away between the check and the update. Nothing to recover.
+    return false;
   }
 }
 
@@ -250,6 +276,9 @@ chrome.webNavigation.onErrorOccurred.addListener(async (details) => {
   // Ignore prerender and other non-visible navigations.
   if (details.documentLifecycle && details.documentLifecycle !== 'active') return;
   if (!NETWORK_ERRORS.has(details.error)) return;
+
+  // Synchronously, before anything can yield. Everything below is compared against this.
+  const navAtError = lastNavigation.get(details.tabId);
 
   const { config } = await loadConfig();
   if (!config.enabled) return;
@@ -271,20 +300,30 @@ chrome.webNavigation.onErrorOccurred.addListener(async (details) => {
 
   if (suppressor.shouldSuppress(details.tabId, details.url, config.suppressMs)) return;
 
-  // After the suppressor, so a Back-button bounce is not counted as a second attempt. The
-  // number is a fleet signal an administrator acts on, so inflating it matters. Still
-  // independent of suggestCorrectTailnet: this runs whether or not that is on.
-  if (!watched && config.recordUnwatchedHosts) await recordUnwatchedHit(details.url);
+  // Recorded only once the page is genuinely on screen, by recordShown below. Counting an
+  // attempt that was then abandoned inflated a number an administrator acts on, and
+  // claiming the suppression slot for a page that never appeared made the next retry
+  // silently do nothing as well.
+  const recordShown = async () => {
+    suppressor.markShown(details.tabId, details.url, config.suppressMs);
+    // Fire and forget: the page is already up and a storage write must not delay it.
+    if (!watched && config.recordUnwatchedHosts) recordUnwatchedHit(details.url);
+  };
 
   if (suggestion) {
     // No probing. The correction is worth offering either way, and the copy does not
     // claim the address is unreachable: a shared device keeps its original tailnet name
     // and is reachable across tailnets once Tailscale is connected.
-    await showHelpPage(details.tabId, details.url, {
-      error: details.error,
-      state: 'wrongTailnet',
-      suggestion,
-    });
+    if (
+      await showHelpPage(
+        details.tabId,
+        details.url,
+        { error: details.error, state: 'wrongTailnet', suggestion },
+        navAtError
+      )
+    ) {
+      await recordShown();
+    }
     return;
   }
 
@@ -293,7 +332,9 @@ chrome.webNavigation.onErrorOccurred.addListener(async (details) => {
   // round trip. Waiting for both left the user staring at Chrome's error page for one to
   // three seconds. The guidance page renders immediately and asks for the classification
   // itself, which it already does on every poll.
-  await showHelpPage(details.tabId, details.url, { error: details.error });
+  if (await showHelpPage(details.tabId, details.url, { error: details.error }, navAtError)) {
+    await recordShown();
+  }
 });
 
 // The guidance page asks the worker to probe rather than fetching Quad100 itself, so the
@@ -339,11 +380,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 // Disabling a setting that records where someone tried to go should delete what it
 // recorded, not merely stop appending to it.
-let recordingWasOn = null;
-watchConfig(({ config }) => {
-  if (recordingWasOn === true && config.recordUnwatchedHosts === false) clearUnwatchedHits();
-  recordingWasOn = config.recordUnwatchedHosts;
-});
-loadConfig().then(({ config }) => {
-  recordingWasOn = config.recordUnwatchedHosts;
-});
+//
+// This deliberately does not remember whether recording used to be on. It did, and the
+// memory lived in a module variable, which in MV3 means it survives about thirty idle
+// seconds. An administrator turning the setting off while the worker was asleep produced a
+// worker that restarted knowing only that recording is off now, never saw the transition,
+// and so never deleted anything. The privacy policy promises that turning it off deletes
+// the record, and that promise quietly did not hold.
+//
+// Asking "is it off, and is there anything left?" needs no memory at all, is idempotent,
+// and gives the same answer however the worker got here.
+function clearIfRecordingIsOff(config) {
+  if (!config.recordUnwatchedHosts) clearUnwatchedHits();
+}
+watchConfig(({ config }) => clearIfRecordingIsOff(config));
+loadConfig().then(({ config }) => clearIfRecordingIsOff(config));

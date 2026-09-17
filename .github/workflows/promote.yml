@@ -32,7 +32,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: chrome-web-store
     steps:
+      # Tags are needed: the confirmation step checks the version was actually cut.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:

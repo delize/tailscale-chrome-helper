@@ -11,6 +11,13 @@ on:
         description: Version to release, e.g. 1.0.1. Must be higher than the current one
         type: string
         required: true
+      publish_type:
+        description: >-
+          STAGED_PUBLISH holds the reviewed version until you run Promote a release.
+          DEFAULT_PUBLISH sends it live as soon as review approves, with no second step.
+        type: choice
+        options: [STAGED_PUBLISH, DEFAULT_PUBLISH]
+        default: STAGED_PUBLISH
       skip_store:
         description: Tag and build only, do not touch the Chrome Web Store
         type: boolean
@@ -117,19 +124,52 @@ jobs:
       - name: Check the package
         run: node tools/check_package.mjs "${{ steps.build.outputs.zip }}"
 
-      # Signs the zip with this workflow's identity, so anyone can later verify the package
-      # in the store came from this repository, this commit and this workflow.
+      # The item is opted in to verified CRX uploads, so the store accepts nothing but a CRX
+      # signed with our key. Chrome does the packing, which is the documented route and
+      # avoids hand-rolling CRX3's signed header.
+      - name: Install Chrome, for packing
+        uses: browser-actions/setup-chrome@v2
+        id: chrome
+
+      - name: Pack and sign the CRX
+        id: crx
+        env:
+          CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
+        run: |
+          # Written with no echo, read-only to the owner, and removed in the cleanup step
+          # below whatever happens afterwards.
+          umask 077
+          printf '%s\n' "$CRX_PRIVATE_KEY" > signing-key.pem
+          if ! head -1 signing-key.pem | grep -q 'BEGIN.*PRIVATE KEY'; then
+            echo "::error::CRX_PRIVATE_KEY is not a PEM private key"
+            exit 1
+          fi
+          "${{ steps.chrome.outputs.chrome-path }}" \
+            --pack-extension="$PWD/dist" \
+            --pack-extension-key="$PWD/signing-key.pem"
+          crx="tailnet-connection-helper-${{ inputs.version }}.crx"
+          mv dist.crx "$crx"
+          echo "crx=$crx" >> "$GITHUB_OUTPUT"
+          # Confirm it really is a CRX before anything downstream trusts it.
+          head -c 4 "$crx" | grep -q 'Cr24' || { echo "::error::packed file is not a CRX"; exit 1; }
+          echo "packed $crx ($(stat -c%s "$crx") bytes)"
+
+      - name: Remove the signing key
+        if: always()
+        run: rm -f signing-key.pem
+
+      # Attests the CRX rather than the zip, because the CRX is what reaches the store.
       - name: Attest the package
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: ${{ steps.build.outputs.zip }}
+          subject-path: ${{ steps.crx.outputs.crx }}
 
       - name: Create the GitHub prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "v${{ inputs.version }}" \
-            "${{ steps.build.outputs.zip }}" \
+            "${{ steps.crx.outputs.crx }}" \
             --title "v${{ inputs.version }}" \
             --generate-notes \
             --prerelease
@@ -149,20 +189,32 @@ jobs:
           CWS_TOKEN: ${{ steps.auth.outputs.access_token }}
           PUBLISHER_ID: ${{ secrets.PUBLISHER_ID }}
           EXTENSION_ID: ${{ vars.EXTENSION_ID }}
-          CWS_ZIP: ${{ steps.build.outputs.zip }}
+          CWS_ZIP: ${{ steps.crx.outputs.crx }}
+          # The item is opted in, so a ZIP must fail loudly rather than be attempted.
+          CWS_REQUIRE_CRX: 'true'
           CWS_PUBLISH: 'true'
-          # Reviewed, then held. Promoting it later needs no second review.
-          CWS_PUBLISH_TYPE: STAGED_PUBLISH
+          # Staged by default: reviewed, then held, and promoting later needs no second
+          # review. Choosing DEFAULT_PUBLISH here skips the hold and goes live on approval,
+          # which is the right choice when nobody is going to come back and promote it.
+          CWS_PUBLISH_TYPE: ${{ inputs.publish_type }}
         run: node tools/cws_publish.mjs
 
       - name: Summary
         run: |
           {
-            echo "### v${{ inputs.version }} staged"
+            echo "### v${{ inputs.version }}"
             echo
-            echo "- GitHub prerelease created with the signed package attached"
-            echo "- Chrome Web Store: submitted for review as STAGED_PUBLISH"
-            echo
-            echo "Once review passes, run **Promote a release** to release it to everyone."
-            echo "That does not need a second review."
+            echo "- GitHub prerelease created, with the signed CRX attached and attested"
+            if [ "${{ inputs.skip_store }}" = "true" ]; then
+              echo "- Chrome Web Store: skipped"
+            elif [ "${{ inputs.publish_type }}" = "DEFAULT_PUBLISH" ]; then
+              echo "- Chrome Web Store: submitted for review, and goes live on approval"
+              echo
+              echo "No further step is needed. It reaches users when review passes."
+            else
+              echo "- Chrome Web Store: submitted for review and held (STAGED_PUBLISH)"
+              echo
+              echo "It will NOT reach users until you run **Promote a release**."
+              echo "That needs no second review."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"

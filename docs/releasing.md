@@ -139,6 +139,39 @@ The store skips review here, because the revision was submitted as `STAGED_PUBLI
 The confirmation field is not ceremony. There is no unpublish, so this is the irreversible
 step.
 
+### Staged or straight to users
+
+`Cut a release` takes a `publish_type`:
+
+- **`STAGED_PUBLISH`**, the default. Reviewed, then held. It does **not** reach users until
+  you run `Promote a release`. If nobody comes back to promote it, it sits there
+  indefinitely, which is the point but is also the trap: staging is only useful if someone
+  is going to do the second step.
+- **`DEFAULT_PUBLISH`**. Reviewed, then live. One step, no promotion.
+
+Pick the second for a release nobody is going to babysit, and the first when you want to
+see the reviewed build before users do.
+
+### The signing key lives in CI, and what that costs
+
+Releases are fully automated, so `CRX_PRIVATE_KEY` is a GitHub Actions secret and the
+workflow signs with it.
+
+This is a deliberate trade and worth understanding rather than inheriting. Verified CRX
+uploads exist so that store access alone is not enough to ship an update: an attacker also
+needs the signing key. Keeping the key in Actions puts it in the same place as the
+federation credential that authorises uploads, so compromising this repository yields both
+and the second factor stops being independent.
+
+What it still protects against: a compromise of the store account or the Google Cloud
+credential alone. What it no longer protects against: a compromise of this repository.
+
+That is acceptable here because write access is one person, the environment requires an
+approval, `can_admins_bypass` is off, and the environment only accepts deployments from
+`main` and `v*` tags. If any of those loosen, revisit this. The alternative is signing
+locally from a password manager and uploading by hand, which keeps the factors separate at
+the cost of a manual step per release.
+
 ### What about a percentage rollout?
 
 `items.setPublishedDeployPercentage` exists, but the API documents it as "only available to

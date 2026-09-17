@@ -21,6 +21,7 @@ const {
   EXTENSION_ID,
   CWS_ZIP,
   CWS_UPLOAD = 'true',
+  CWS_REQUIRE_CRX = 'false',
   CWS_PUBLISH = 'false',
   CWS_PUBLISH_TYPE = 'DEFAULT_PUBLISH',
   CWS_DEPLOY_PERCENTAGE = '',
@@ -67,13 +68,46 @@ async function fetchStatus() {
   return call(`${API}/v2/${item}:fetchStatus`);
 }
 
+// A CRX is a ZIP with a signed header bolted on the front, so the two are told apart by
+// the magic bytes rather than the file extension. Getting this wrong means uploading a
+// signed package with the headers for an unsigned one, which the store rejects in a way
+// that does not obviously name the cause.
+function isCrx(bytes) {
+  return bytes.length > 4 && bytes.subarray(0, 4).toString('latin1') === 'Cr24';
+}
+
 async function upload() {
+  const bytes = readFileSync(CWS_ZIP);
   const size = statSync(CWS_ZIP).size;
-  console.log(`uploading ${CWS_ZIP} (${(size / 1024).toFixed(1)} KB) to ${item}`);
+  const crx = isCrx(bytes);
+  const name = CWS_ZIP.split('/').pop();
+
+  // An item opted in to verified CRX uploads accepts nothing else, so a ZIP reaching this
+  // point is a build that forgot to sign rather than a fallback worth allowing silently.
+  if (CWS_REQUIRE_CRX === 'true' && !crx) {
+    console.error(`${CWS_ZIP} is not a signed CRX, and this item requires one.`);
+    console.error('Expected the file to start with the magic bytes Cr24.');
+    process.exit(1);
+  }
+
+  console.log(`uploading ${name} (${(size / 1024).toFixed(1)} KB, ${crx ? 'signed CRX' : 'ZIP'}) to ${item}`);
+  // Exactly the two headers the docs specify for a CRX, and nothing else. An earlier
+  // version also sent Content-Type: application/x-chrome-extension, which was a guess: the
+  // documentation names X-Goog-Upload-Protocol and X-Goog-Upload-File-Name and no media
+  // type. Guessing a Content-Type on a raw upload protocol is how you get a rejection whose
+  // message blames the body rather than the header.
+  const headers = crx
+    ? {
+        'Content-Length': String(size),
+        'X-Goog-Upload-Protocol': 'raw',
+        'X-Goog-Upload-File-Name': name,
+      }
+    : { 'Content-Type': 'application/zip', 'Content-Length': String(size) };
+
   const body = await call(`${API}/upload/v2/${item}:upload`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/zip', 'Content-Length': String(size) },
-    body: readFileSync(CWS_ZIP),
+    headers,
+    body: bytes,
   });
 
   let state = body.uploadState;

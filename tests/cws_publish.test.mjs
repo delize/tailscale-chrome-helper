@@ -242,3 +242,42 @@ test('a staged publish asks for STAGED_PUBLISH, not the default', async () => {
     }
   );
 });
+
+test('a CRX upload sends exactly the two documented headers', async () => {
+  // The docs name X-Goog-Upload-Protocol and X-Goog-Upload-File-Name. An invented
+  // Content-Type on a raw upload is the kind of guess that gets rejected with a message
+  // about the body rather than the header, so this asserts we send neither more nor less.
+  const seenHeaders = {};
+  const server = createServer((req, res) => {
+    if (req.url.endsWith(':upload')) Object.assign(seenHeaders, req.headers);
+    req.resume();
+    req.on('end', () => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(req.url.endsWith(':upload') ? { uploadState: 'SUCCEEDED' } : OK_STATUS));
+    });
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  // A minimal but genuine CRX3: the magic is what the script keys off.
+  const crx = join(mkdtempSync(join(tmpdir(), 'cws-')), 'ext.crx');
+  writeFileSync(crx, Buffer.concat([Buffer.from('Cr24'), Buffer.alloc(32)]));
+  try {
+    const r = await run(base, { CWS_ZIP: crx, CWS_REQUIRE_CRX: 'true' });
+    assert.equal(r.code, 0, r.stderr);
+    assert.equal(seenHeaders['x-goog-upload-protocol'], 'raw');
+    assert.equal(seenHeaders['x-goog-upload-file-name'], 'ext.crx');
+    assert.ok(!seenHeaders['content-type'], 'no invented media type on a raw upload');
+    assert.match(r.stdout, /signed CRX/);
+  } finally {
+    server.close();
+  }
+});
+
+test('a ZIP is refused when the item requires a signed CRX', async () => {
+  await withStore({ upload: { uploadState: 'SUCCEEDED' }, status: OK_STATUS }, async (base, seen) => {
+    const r = await run(base, { CWS_REQUIRE_CRX: 'true' });
+    assert.equal(r.code, 1, 'must not silently upload an unsigned package');
+    assert.match(r.stderr, /not a signed CRX/);
+    assert.ok(!seen.some((s) => s.endsWith(':upload')), 'and must not attempt the upload');
+  });
+});

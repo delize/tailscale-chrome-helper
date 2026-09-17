@@ -1,6 +1,6 @@
 {
   "name": "tailnet-connection-helper",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Chrome extension that replaces the browser error page with connection guidance when a Tailscale tailnet app is unreachable.",
   "license": "Apache-2.0",

@@ -168,6 +168,14 @@ jobs:
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+          # Without this the action exports CLOUDSDK_CORE_PROJECT, GCLOUD_PROJECT and
+          # friends into the step environment, where Actions prints them unmasked. On a
+          # public repository that publishes the Google Cloud project id in the log, which
+          # defeats the reason WIF_SERVICE_ACCOUNT is a secret at all: its value contains
+          # that project id. Only the access_token output is used here, so nothing needs
+          # the exported environment.
+          export_environment_variables: false
+          create_credentials_file: false
 
       - name: Upload and stage in the Chrome Web Store
         if: ${{ !inputs.skip_store }}
@@ -175,9 +183,10 @@ jobs:
           CWS_TOKEN: ${{ steps.auth.outputs.access_token }}
           PUBLISHER_ID: ${{ secrets.PUBLISHER_ID }}
           EXTENSION_ID: ${{ vars.EXTENSION_ID }}
-          CWS_ZIP: ${{ steps.crx.outputs.crx }}
-          # The item is opted in, so a ZIP must fail loudly rather than be attempted.
-          CWS_REQUIRE_CRX: 'true'
+          # Renamed from CWS_ZIP, because it holds a CRX. CWS_REQUIRE_CRX is gone: the
+          # script requires a signed CRX unconditionally now, since whether one is required
+          # is a property of the store item rather than of this invocation.
+          CWS_PACKAGE: ${{ steps.crx.outputs.crx }}
           CWS_PUBLISH: 'true'
           # Staged by default: reviewed, then held, and promoting later needs no second
           # review. Choosing DEFAULT_PUBLISH here skips the hold and goes live on approval,

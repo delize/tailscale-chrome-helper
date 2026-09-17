@@ -21,7 +21,6 @@ const {
   PUBLISHER_ID,
   EXTENSION_ID,
   CWS_PACKAGE,
-  CWS_ZIP,
   CWS_UPLOAD = 'true',
   CWS_PUBLISH = 'false',
   CWS_EXPECT_VERSION = '',
@@ -51,9 +50,9 @@ function flag(name, value) {
 need('CWS_TOKEN', CWS_TOKEN);
 need('PUBLISHER_ID', PUBLISHER_ID);
 need('EXTENSION_ID', EXTENSION_ID);
-// Renamed: it holds a CRX, not a zip. The old name is still read so a stale caller
-// fails loudly on the next line rather than mysteriously.
-const pkg = CWS_PACKAGE || CWS_ZIP;
+// The file to upload. Named CWS_PACKAGE rather than CWS_ZIP because it holds a CRX: the
+// store item is opted in to verified CRX uploads and accepts nothing else.
+const pkg = CWS_PACKAGE;
 
 const shouldUpload = flag('CWS_UPLOAD', CWS_UPLOAD);
 if (shouldUpload) need('CWS_PACKAGE', pkg);

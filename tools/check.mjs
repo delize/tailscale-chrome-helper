@@ -221,6 +221,24 @@ for (const area of areas) {
   }
 }
 
+// The workflows and the publish script share an environment contract with nothing enforcing
+// it. The script was renamed from CWS_ZIP to CWS_PACKAGE and the workflow kept passing the
+// old name, which only worked because a compatibility fallback hid it, and CWS_REQUIRE_CRX
+// was still being passed to something that no longer read it.
+const publishSrc = readFileSync(new URL('../tools/cws_publish.mjs', import.meta.url), 'utf8');
+const declared = new Set(
+  [...publishSrc.matchAll(/^\s{2}(CWS_[A-Z_]+)/gm)].map((m) => m[1])
+);
+for (const extra of ['CWS_API', 'CWS_POLL_MS', 'CWS_TIMEOUT_MS']) declared.add(extra);
+for (const wf of ['release.yml', 'promote.yml']) {
+  const src = readFileSync(new URL('../.github/workflows/' + wf, import.meta.url), 'utf8');
+  for (const m of src.matchAll(/^\s+(CWS_[A-Z_]+):/gm)) {
+    if (!declared.has(m[1])) {
+      problems.push(`.github/workflows/${wf} passes ${m[1]}, which tools/cws_publish.mjs does not read`);
+    }
+  }
+}
+
 if (problems.length) {
   console.error('FAIL');
   for (const p of problems) console.error('  - ' + p);

@@ -210,3 +210,35 @@ test('a deploy percentage is sent as deployInfos, not invented', async () => {
     }
   );
 });
+
+test('promoting publishes the staged revision without re-uploading', async () => {
+  await withStore(
+    { upload: { uploadState: 'SUCCEEDED' }, status: OK_STATUS, publish: { state: 'PUBLISHED' } },
+    async (base, seen) => {
+      const r = await run(base, {
+        CWS_UPLOAD: 'false',
+        CWS_PUBLISH: 'true',
+        CWS_PUBLISH_TYPE: 'DEFAULT_PUBLISH',
+        CWS_ZIP: '',
+      });
+      assert.equal(r.code, 0, r.stderr);
+      assert.ok(
+        !seen.some((s) => s.endsWith(':upload')),
+        'uploading here would submit different bytes than the ones reviewed'
+      );
+      assert.ok(seen.some((s) => s.endsWith(':publish')), 'but it does publish');
+      assert.match(r.stdout, /skipping upload/);
+    }
+  );
+});
+
+test('a staged publish asks for STAGED_PUBLISH, not the default', async () => {
+  await withStore(
+    { upload: { uploadState: 'SUCCEEDED' }, status: OK_STATUS, publish: { state: 'STAGED' } },
+    async (base) => {
+      const r = await run(base, { CWS_PUBLISH: 'true', CWS_PUBLISH_TYPE: 'STAGED_PUBLISH' });
+      assert.equal(r.code, 0, r.stderr);
+      assert.match(r.stdout, /"publishType":"STAGED_PUBLISH"/);
+    }
+  );
+});

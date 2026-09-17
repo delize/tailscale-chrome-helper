@@ -1,0 +1,85 @@
+name: Promote a release
+
+# Takes a revision already staged by "Cut a release" and releases it to everyone.
+#
+# No package is uploaded and no new version is built. The bytes that went through review are
+# the bytes that go live, which is the whole reason for staging: what ships is what was
+# reviewed, not a rebuild that happens to carry the same version number.
+#
+# The store skips review here, because the revision was submitted with STAGED_PUBLISH.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to promote, e.g. 1.0.1. Must already be staged
+        type: string
+        required: true
+      confirm:
+        description: Type the version again to confirm this goes live to all users
+        type: string
+        required: true
+
+permissions:
+  contents: write     # flip the GitHub prerelease to latest
+  id-token: write
+
+concurrency:
+  group: chrome-web-store
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: chrome-web-store
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Going live is the one irreversible step here: there is no unpublish, only a higher
+      # version. A typed confirmation is cheap next to that.
+      - name: Confirm
+        run: |
+          if [ "${{ inputs.version }}" != "${{ inputs.confirm }}" ]; then
+            echo "::error::confirmation does not match the version"
+            exit 1
+          fi
+          if ! git rev-parse "v${{ inputs.version }}" >/dev/null 2>&1; then
+            echo "::error::tag v${{ inputs.version }} does not exist, so it was never cut"
+            exit 1
+          fi
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+
+      - name: Release to everyone
+        env:
+          CWS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          PUBLISHER_ID: ${{ vars.PUBLISHER_ID }}
+          EXTENSION_ID: ${{ vars.EXTENSION_ID }}
+          # No upload: the staged revision is already in the store and already reviewed.
+          CWS_UPLOAD: 'false'
+          CWS_PUBLISH: 'true'
+          CWS_PUBLISH_TYPE: DEFAULT_PUBLISH
+        run: node tools/cws_publish.mjs
+
+      - name: Mark the GitHub release as latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "v${{ inputs.version }}" --prerelease=false --latest
+
+      - name: Summary
+        run: |
+          {
+            echo "### v${{ inputs.version }} released to everyone"
+            echo
+            echo "The reviewed revision was released without a second review."
+            echo "There is no unpublish: to undo this, cut a higher version."
+          } >> "$GITHUB_STEP_SUMMARY"

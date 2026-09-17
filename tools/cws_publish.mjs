@@ -20,6 +20,7 @@ const {
   PUBLISHER_ID,
   EXTENSION_ID,
   CWS_ZIP,
+  CWS_UPLOAD = 'true',
   CWS_PUBLISH = 'false',
   CWS_PUBLISH_TYPE = 'DEFAULT_PUBLISH',
   CWS_DEPLOY_PERCENTAGE = '',
@@ -37,7 +38,7 @@ function need(name, value) {
 need('CWS_TOKEN', CWS_TOKEN);
 need('PUBLISHER_ID', PUBLISHER_ID);
 need('EXTENSION_ID', EXTENSION_ID);
-need('CWS_ZIP', CWS_ZIP);
+if (CWS_UPLOAD === 'true') need('CWS_ZIP', CWS_ZIP);
 
 const item = `publishers/${PUBLISHER_ID}/items/${EXTENSION_ID}`;
 const auth = { Authorization: `Bearer ${CWS_TOKEN}` };
@@ -124,7 +125,14 @@ async function publish() {
   }
 }
 
-await upload();
+// Promotion re-publishes an already-reviewed, staged revision. No new package is involved,
+// so uploading one would submit something different for review and defeat the point.
+if (CWS_UPLOAD === 'true') {
+  await upload();
+} else {
+  console.log('skipping upload: promoting the revision already staged in the store');
+}
+
 if (CWS_PUBLISH === 'true') {
   await publish();
 } else {

@@ -47,17 +47,18 @@ secrets means the logs stay readable when something goes wrong.
 
 | Name | Kind | Value |
 |---|---|---|
-| `WIF_PROVIDER` | secret | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github-oidc` |
-| `WIF_SERVICE_ACCOUNT` | secret | `cws-publisher@PROJECT_ID.iam.gserviceaccount.com` |
-| `PUBLISHER_ID` | secret | The publisher ID from the dashboard URL |
+| `WIF_PROVIDER` | variable | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github-oidc` |
+| `WIF_SERVICE_ACCOUNT` | variable | `cws-publisher@PROJECT_ID.iam.gserviceaccount.com` |
+| `PUBLISHER_ID` | variable | The publisher ID from the dashboard URL |
 | `EXTENSION_ID` | variable | The extension ID, 32 lowercase letters |
 
 None of these four are sensitive in the cryptographic sense. A federation provider path, a
 service account address and a pair of store identifiers all appear in URLs, logs and
 manifests, and none of them grants anything on its own: access comes from the identity
-federation binding, which is scoped to this repository. They are held as secrets because
-that is the house style, at the cost of masked values making a failed run harder to read.
-`EXTENSION_ID` stays a variable because it is the one you will want to see in a log.
+federation binding, which is scoped to this repository. All four are held as variables, so a failed run says which value was wrong instead of
+printing three masked blanks. Referencing a variable through `secrets.` yields an empty
+string rather than an error, which fails at the auth step while `gh variable list` plainly
+shows the value, so the kind has to match the reference.
 
 ### 6. Signing, and what is actually signed
 
@@ -91,22 +92,51 @@ The workflow targets an environment named `chrome-web-store`. Create it under Se
 Environments and add yourself as a required reviewer. Every publish then waits for a human,
 which matters because a publish reaches real users and is not easily taken back.
 
-## Publishing
+## Cutting a release
 
-**On a release.** Publishing a GitHub Release runs the workflow, which verifies, checks that
-the tag matches the manifest version, builds the zip, uploads it and submits it for review.
+Two workflows, and the order is deliberate: beta first, always.
 
-A tag of `v1.2.0` must match `"version": "1.2.0"` in `manifest.json`. The job fails if they
-disagree, because a release that ships a different version than it claims is discovered much
-later and by someone else.
+### 1. Cut a release
 
-**Manually.** Run the workflow from the Actions tab. It defaults to **uploading a draft and
-stopping**, which is reviewable in the dashboard and costs nothing if it is wrong. Tick
-`publish` to submit it.
+Actions → **Cut a release** → give it a version, e.g. `1.0.1`.
 
-`publish_type` chooses between `DEFAULT_PUBLISH`, which goes live once review approves, and
-`STAGED_PUBLISH`, which waits for you to release it. `deploy_percentage` starts a partial
-rollout.
+It refuses a version that is not higher than the current one, or whose tag already exists,
+because the store rejects a version that does not increase and finding that out after review
+wastes a cycle. Then it sets the version in `manifest.json` and `package.json`, commits,
+tags, runs `npm run verify`, builds the zip, checks the archive with
+`tools/check_package.mjs`, signs it with `attest-build-provenance`, publishes a GitHub
+**prerelease** with the zip attached, and submits it to the store as **`STAGED_PUBLISH`**.
+
+Staged means it goes through review and is then held. It does not reach users.
+
+`skip_store` tags and builds without touching the store, which is how to rehearse the
+mechanics.
+
+### 2. Promote a release
+
+Once review passes, Actions → **Promote a release** → the same version, typed twice.
+
+It publishes the already-staged revision with `DEFAULT_PUBLISH` and flips the GitHub release
+from prerelease to latest. **It uploads nothing.** The bytes that went through review are the
+bytes that go live, which is the point of staging: what ships is what was reviewed, not a
+rebuild that happens to carry the same version number.
+
+The store skips review here, because the revision was submitted as `STAGED_PUBLISH`.
+
+The confirmation field is not ceremony. There is no unpublish, so this is the irreversible
+step.
+
+### What about a percentage rollout?
+
+`items.setPublishedDeployPercentage` exists, but the API documents it as "only available to
+items with over 10,000 seven-day active users". A new listing cannot ramp a rollout, so
+staging is the available equivalent and the reason the flow is built around it.
+
+### Trusted testers
+
+The v2 API has no field for publishing to trusted testers. The state exists
+(`PUBLISHED_TO_TESTERS`) but it follows from the item's visibility in the dashboard rather
+than from anything the request can set. Configure it there if you want it.
 
 ## What the script checks that a plain curl would not
 

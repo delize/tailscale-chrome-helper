@@ -61,6 +61,14 @@ jobs:
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+          # Without this the action exports CLOUDSDK_CORE_PROJECT, GCLOUD_PROJECT and
+          # friends into the step environment, where Actions prints them unmasked. On a
+          # public repository that publishes the Google Cloud project id in the log, which
+          # defeats the reason WIF_SERVICE_ACCOUNT is a secret at all: its value contains
+          # that project id. Only the access_token output is used here, so nothing needs
+          # the exported environment.
+          export_environment_variables: false
+          create_credentials_file: false
 
       - name: Release to everyone
         env:

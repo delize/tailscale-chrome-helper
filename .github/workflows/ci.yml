@@ -1,0 +1,54 @@
+name: CI
+
+# Runs on every push and every pull request. This did not exist until release 1.0.1 failed,
+# which meant two dozen pull requests merged with no automated verification at all: the
+# checks existed and were only ever run by hand.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # So a red main can be re-checked without an empty commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Per ref, and cancel superseded runs: a push that lands while an older commit is still
+  # being checked makes that older result irrelevant.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Drift guards, the test suite, then Chrome's own parse of manifest.json and
+      # schema.json. The last one matters most: Chrome silently discards a policy value
+      # that fails schema validation, so a malformed schema reaches users and surfaces only
+      # as "Not set" in someone's browser.
+      - name: Verify
+        run: npm run verify
+
+      # The release builds and uploads this, so a package that cannot be built or that
+      # fails the store's own rules should fail here rather than mid-release.
+      - name: Build and check the package
+        run: |
+          npm run package
+          zip=$(ls -1 tailnet-connection-helper-*.zip | head -1)
+          node tools/check_package.mjs "$zip"
+
+      # Workflows are not covered by npm run verify, and a YAML error is only discovered
+      # when a release fails.
+      - name: Lint the workflows
+        run: |
+          for f in .github/workflows/*.yml; do
+            npx --yes js-yaml "$f" > /dev/null || { echo "::error file=$f::invalid YAML"; exit 1; }
+            echo "  ok $f"
+          done

@@ -55,7 +55,16 @@ def main() -> int:
         default=str(REPO / "dist"),
         help="the directory you loaded unpacked (default: dist/)",
     )
-    parser.add_argument("--id", help="extension ID, if you would rather paste it from chrome://extensions")
+    parser.add_argument(
+        "--id",
+        action="append",
+        help=(
+            "extension ID, from chrome://extensions or the Web Store console URL. Repeat or "
+            "comma-separate to configure several IDs from one profile, which is what you want "
+            "while the same extension exists as both an unpacked build and a store install: "
+            "policy is keyed by ID, and those two IDs differ."
+        ),
+    )
     parser.add_argument("--config", help="JSON file of settings (default: a sample tenant)")
     parser.add_argument(
         "--probe",
@@ -70,7 +79,12 @@ def main() -> int:
     args = parser.parse_args()
 
     ext_dir = Path(args.dir).resolve()
-    ext_id = args.id or unpacked_extension_id(ext_dir)
+    if args.id:
+        ext_ids = [i.strip() for entry in args.id for i in entry.split(",") if i.strip()]
+    else:
+        ext_ids = [unpacked_extension_id(ext_dir)]
+    # Kept so the single-ID paths below read unchanged.
+    ext_id = ext_ids[0]
 
     if args.config:
         config = json.loads(Path(args.config).read_text())
@@ -82,7 +96,7 @@ def main() -> int:
     out_dir.mkdir(exist_ok=True)
 
     print(f"Extension directory : {ext_dir}")
-    print(f"Extension ID        : {ext_id}")
+    print("Extension IDs       : " + ", ".join(ext_ids))
     if not args.id:
         print("                      (derived from the path; confirm at chrome://extensions)")
     print(f"Settings            : {json.dumps(config, indent=2)}")
@@ -101,16 +115,19 @@ def main() -> int:
         # with the policy keys at the top level of that domain. A 3rdparty key in the
         # Chrome domain is read by nobody and fails silently, which is exactly what it
         # looks like: real Chrome policies apply while every extension section stays empty.
+        # One payload per extension ID. Each ID is its own preference domain, so the same
+        # settings have to be stated once per ID rather than shared.
         payloads = [
             {
-                "PayloadType": f"com.google.Chrome.extensions.{ext_id}",
+                "PayloadType": f"com.google.Chrome.extensions.{eid}",
                 "PayloadVersion": 1,
-                "PayloadIdentifier": f"org.local.tailnet-helper.dev.{ext_id}",
-                "PayloadUUID": payload_uuid,
-                "PayloadDisplayName": "Tailnet Connection Helper settings",
+                "PayloadIdentifier": f"org.local.tailnet-helper.dev.{eid}",
+                "PayloadUUID": payload_uuid if i == 0 else str(uuid.uuid4()),
+                "PayloadDisplayName": f"Tailnet Connection Helper settings ({eid[:8]}…)",
                 "PayloadEnabled": True,
                 **config,
             }
+            for i, eid in enumerate(ext_ids)
         ]
 
         if args.probe:
@@ -175,7 +192,7 @@ def main() -> int:
 
         # Chrome reads managed-storage values from the 3rdparty key of its managed
         # preferences domain. Values must be the real JSON types, not strings.
-        payload = {"3rdparty": {"extensions": {ext_id: config}}}
+        payload = {"3rdparty": {"extensions": {eid: config for eid in ext_ids}}}
         target = out_dir / f"{BUNDLE}.plist"
         target.write_bytes(plistlib.dumps(payload))
         print(f"Wrote {target}")
@@ -209,9 +226,12 @@ def main() -> int:
     elif system == "Linux":
         # Linux does use the 3rdparty wrapper, unlike macOS. Extension settings are not
         # top-level keys in the policy file.
-        target = out_dir / f"{ext_id}.json"
+        target = out_dir / f"{ext_ids[0]}.json"
         target.write_text(
-            json.dumps({"3rdparty": {"extensions": {ext_id: config}}}, indent=2) + "\n"
+            json.dumps(
+                {"3rdparty": {"extensions": {eid: config for eid in ext_ids}}}, indent=2
+            )
+            + "\n"
         )
         print(f"Wrote {target}")
         print()
@@ -222,7 +242,7 @@ def main() -> int:
         print("Restart Chrome and check chrome://policy.")
         print()
         print("Remove it again:")
-        print(f"  sudo rm /etc/opt/chrome/policies/managed/{ext_id}.json")
+        print(f"  sudo rm /etc/opt/chrome/policies/managed/{ext_ids[0]}.json")
 
     elif system == "Windows":
         target = out_dir / "policy.reg"

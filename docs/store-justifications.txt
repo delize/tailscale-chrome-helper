@@ -1,0 +1,152 @@
+Answers for the Chrome Web Store "Privacy practices" tab. Each free-text field is capped at
+1000 characters. Paste verbatim.
+
+
+================================================================================
+SINGLE PURPOSE DESCRIPTION
+================================================================================
+
+Detect when a navigation fails against a Tailscale tailnet address, and replace Chrome's
+generic error page with guidance explaining why it failed and what to do.
+
+That is the whole extension. It turns an unexplained network error into an actionable page,
+and returns the user to the address they asked for once it becomes reachable.
+
+It works out the cause first, because the correct advice differs: Tailscale is not
+connected, a captive portal is waiting for a sign-in, there is no network at all, the host
+is not responding, the name does not resolve on the tailnet, or the address belongs to a
+different tailnet. Each gets its own wording. Nothing else is shown and nothing else is
+offered.
+
+It does not modify web pages, inject scripts, block or alter requests, or act on any
+navigation that succeeded.
+
+
+================================================================================
+"ARE YOU USING REMOTE CODE?"  ->  No, I am not using Remote code
+================================================================================
+
+(No justification field appears when you answer No. Verified in the built package: the only
+script tags are <script type="module" src="help.js"> and src="options.js", both local; the
+only import specifiers are './config.js', './hostlog.js' and './suppression.js'; there is no
+eval, no new Function, no importScripts, no remote import(); no content_security_policy
+override, so the default MV3 policy applies; and no content scripts.)
+
+
+================================================================================
+WEBNAVIGATION JUSTIFICATION
+================================================================================
+
+The extension exists to react to a navigation that failed, and webNavigation.onErrorOccurred
+is the only API that reports one. It supplies the tab, the address, and Chrome's error code,
+which are exactly what is needed to decide whether to intervene and what to say.
+
+It is used for nothing else. The listener ignores every navigation that succeeded, every
+subframe, and every prerender. Of the remaining failures it acts only on those whose error
+code indicates a DNS or connection failure and whose host matches a domain the administrator
+configured, typically a single tailnet. Everything else returns immediately and the user
+sees Chrome's normal error page.
+
+onBeforeNavigate is used only to notice that the user has navigated elsewhere while the
+extension was reading its configuration, so it never takes over a tab the user has already
+left.
+
+No navigation data is stored or transmitted.
+
+
+================================================================================
+STORAGE JUSTIFICATION
+================================================================================
+
+Four uses, all local to the device.
+
+storage.managed holds the administrator's configuration, which is the entire mechanism by
+which this extension is customised: which domains to watch, the company name, the support
+link, and the wording on every screen. It is read-only and set through Chrome policy.
+Without it the extension cannot know which domains belong to the organisation.
+
+storage.sync holds the same settings when someone installs the extension themselves and
+fills in the options page, so an unmanaged install works.
+
+storage.session holds hosts the user chose to proceed to anyway, so the extension stops
+interposing for the rest of the browsing session instead of asking repeatedly.
+
+storage.local is used only when an administrator enables an optional, off-by-default count
+of failed connections to tailnets outside the configured list.
+
+Nothing in storage is transmitted anywhere.
+
+
+================================================================================
+HOST PERMISSION JUSTIFICATION
+================================================================================
+
+Two, both to fixed endpoints, neither to any website the user visits.
+
+http://100.100.100.100/ is Tailscale's local address, served by the Tailscale client on the
+same machine, so the request never leaves the device. The body is read only to confirm it
+identifies itself as Tailscale: a captive portal can answer 200 for any address, so a status
+code alone proves nothing. This is how the extension knows whether Tailscale is running.
+
+http://connectivitycheck.gstatic.com/ is a public no-content endpoint used to tell "there is
+no network" apart from "this network wants a sign-in". It carries no identifiers and no
+reference to the site the user was visiting. It must be plain http, because a captive portal
+cannot intercept https without presenting a certificate the client rejects, so an https
+probe can only ever fail and would report every portal as no network.
+
+There is no host permission for any website, so page content is unreadable.
+
+
+================================================================================
+DATA USAGE  ->  tick "Web history" ONLY
+================================================================================
+
+TICK:
+  [x] Web history
+
+DO NOT TICK:
+  [ ] Personally identifiable information   no name, address, email, age or ID is handled
+  [ ] Health information                    none
+  [ ] Financial and payment information     none
+  [ ] Authentication information            no credentials are read, stored or entered
+  [ ] Personal communications               none
+  [ ] Location                              no region, GPS or location inference. The
+                                            connectivity probe is a fixed endpoint and
+                                            carries no identifiers
+  [ ] User activity                         no clicks, mouse position, scroll, keystrokes
+                                            or network monitoring
+  [ ] Website content                       no host permission for any website, so text,
+                                            images and links on pages cannot be read
+
+Why "Web history" is ticked even though nothing is sent anywhere: Chrome Web Store policy
+requires disclosure of data handling "even when data is processed or stored locally on a
+user's device and is not transmitted to external servers", and defines handling as
+"collecting, transmitting, using, or sharing". The extension is told the address of every
+failed navigation and uses it, and one optional setting stores hostnames with first-seen and
+last-seen timestamps. Both fall inside the category, so it is ticked.
+
+CERTIFY ALL THREE. All are true:
+
+  [x] I do not sell or transfer user data to third parties, outside of the approved use
+      cases.
+      Nothing is transferred anywhere at all. There is no backend, no analytics and no
+      reporting endpoint.
+
+  [x] I do not use or transfer user data for purposes that are unrelated to my item's single
+      purpose.
+      The only use is deciding whether a failed navigation concerns a configured tailnet and
+      what guidance to show.
+
+  [x] I do not use or transfer user data to determine creditworthiness or for lending
+      purposes.
+      No.
+
+
+================================================================================
+EXPECT AN IN-DEPTH REVIEW
+================================================================================
+
+The console warns that a host permission may trigger a longer review. That is expected here.
+Both host permissions are narrow, fixed, and justified above, and neither grants access to a
+website. The plain http on both is the detail most likely to be queried, so the reason is
+stated in the justification rather than left to be inferred.

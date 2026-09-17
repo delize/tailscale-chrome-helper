@@ -98,6 +98,27 @@ wrapper:
 `tools/dev_policy.py` in this repository generates the right shape for whichever platform
 you run it on, and is the fastest way to test a configuration before rolling it out.
 
+### The store ID and the unpacked ID are different
+
+Policy is keyed by extension ID, and an extension has two of them during its life. An
+unpacked build takes its ID from the directory path, so it is stable on your machine and
+different on everyone else's. A store listing has an ID assigned by the store.
+
+They do not match, which means a profile written for one silently does nothing for the
+other. The symptom is an extension that visibly reads policy one day and shows every value
+as unset the next, because you installed it from the store in between.
+
+`tools/dev_policy.py` takes more than one, so a single profile can cover both while you are
+moving from a local build to a store install:
+
+```sh
+python3 tools/dev_policy.py --id STORE_ID,UNPACKED_ID --config my-config.json
+```
+
+Each ID is its own preference domain on macOS, so the settings are written once per ID
+rather than shared. Deployed for real through an admin console you only ever need the store
+ID.
+
 ### Confirming it took
 
 Chrome validates your JSON against the schema the extension ships and **silently discards

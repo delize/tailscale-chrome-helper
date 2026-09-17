@@ -91,6 +91,20 @@ configurable key and not part of `strings`. An administrator can reword every ot
 on the page and cannot touch these. `tools/check.mjs` fails the build if that stops being
 true.
 
+## Listing copy
+
+The detailed description lives in [store-description.txt](store-description.txt), as plain
+text ready to paste. The store does not render Markdown, so it uses caps headings rather
+than `##`.
+
+The short description is the `description` field in `manifest.json`, which the store reads
+directly, so it does not need pasting anywhere. It is capped at 132 characters and opens
+with "Unofficial." deliberately.
+
+Screenshots are in [images/store/](images/store/): five files at 1280x800, 24-bit PNG with
+no alpha, which is what the store requires. Regenerate them with `npm run preview` and the
+harness's `?frame=1`, which centres the card so every state frames identically.
+
 ## Privacy policy
 
 Publish `docs/privacy.md`. It separates what is handled, what is stored and what is

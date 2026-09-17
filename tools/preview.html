@@ -35,6 +35,17 @@
       // ?record=1 shows the data-handling notice, which is the only page element an
       // administrator cannot reword. Without this the notice was unreviewable.
       if (q.get('record')) managed.recordUnwatchedHosts = true;
+
+      // ?frame=1 centres the card in the viewport. Used to capture the Web Store
+      // screenshots, which must be exactly 1280x800: set that viewport, pass this, and
+      // every state frames identically instead of drifting with the card's height.
+      if (q.get('frame')) {
+        const style = document.createElement('style');
+        style.textContent =
+          'body{display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}' +
+          'main.card{margin:0}';
+        document.head.appendChild(style);
+      }
       if (q.get('suffixes')) {
         managed.watchedSuffixes = q.get('suffixes').split(',').map((s) => s.trim());
       } else if (q.get('target')) {

@@ -35,12 +35,12 @@ the real block is an unsigned-in hotel network.
 
 ```json
 {
-  "companyName": "Acme",
-  "watchedSuffixes": ["acme.ts.net"],
-  "tailnetName": "Acme",
-  "emailDomain": "acme.com",
-  "supportUrl": "https://help.acme.com/tailscale",
-  "showInstallLink": false
+  "companyName": { "Value": "Acme" },
+  "watchedSuffixes": { "Value": ["acme.ts.net"] },
+  "tailnetName": { "Value": "Acme" },
+  "emailDomain": { "Value": "acme.com" },
+  "supportUrl": { "Value": "https://help.acme.com/tailscale" },
+  "showInstallLink": { "Value": false }
 }
 ```
 
@@ -49,9 +49,17 @@ Telling those users to go and install it sends them somewhere they cannot act, a
 support link is the useful route instead. Leave it true only if people install the client
 themselves.
 
-Use this flat shape. Some vendors document a wrapped form (`{"key": {"Value": "x"}}`)
-carried over from the Windows registry. This extension expects the flat form, and the
-wrapped form will be discarded.
+### Every value is wrapped in `{"Value": ...}`
+
+The Admin console hands this JSON to Chrome exactly as pasted, and Chrome's parser for extension policy requires each setting to be an object with the value under `"Value"`. An optional `"Level": "Recommended"` beside it makes the setting a default the user can change; without it the setting is mandatory. Paste the flat shape (`"companyName": "Acme"`) and Chrome discards the entire configuration, not just the first key. Nothing in the Admin console warns about it. `chrome://policy` shows the extension with **"No policies set"**, and the only trace is one line in `chrome://policy/logs`:
+
+```
+Discarding policy for component EXTENSION_ID due to data validation failure: The JSON blob dictionary value is not a dictionary.
+```
+
+The wrapper exists only in this field. Chrome removes it before the extension reads anything, and the MDM, registry and Linux paths below take plain values. The settings reference further down lists keys by name, so wrap each one when you paste it here.
+
+`examples/admin-console-minimal.json` and `examples/admin-console-full.json` are already in this shape.
 
 ## Deploying without the Admin console
 
@@ -127,10 +135,11 @@ message.
 
 On a managed device, open `chrome://policy`, find the extension under its ID, and check
 the values. A key showing **"Not set"** means your JSON reached the browser but failed
-validation. The usual causes are a misspelled key, the wrapped shape above, or a value of
-the wrong type.
+validation. The usual causes are a misspelled key or a value of the wrong type.
 
-Policy changes apply without a browser restart.
+The extension showing **"No policies set"** is a different failure: nothing usable arrived at all. Chrome policies being present while this section stays empty points at the shape. From the Admin console that means an unwrapped value (see above). From a macOS profile it means the `3rdparty` mistake. Open `chrome://policy/logs`, click **Reload policies**, and search for the extension ID. A rejected configuration is logged there with its reason, and this is the only place it appears.
+
+Policy changes apply without a browser restart. After **Reload policies**, the install rule and the configuration are fetched separately, so the extension can be installed and running on defaults for a minute before its settings arrive.
 
 ## Settings
 

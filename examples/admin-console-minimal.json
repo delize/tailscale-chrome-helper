@@ -1,10 +1,22 @@
 {
-  "companyName": "Acme",
-  "watchedSuffixes": [
-    "acme.ts.net"
-  ],
-  "tailnetName": "Acme",
-  "emailDomain": "acme.com",
-  "supportUrl": "https://help.acme.com/tailscale",
-  "showInstallLink": false
+  "companyName": {
+    "Value": "Acme"
+  },
+  "watchedSuffixes": {
+    "Value": [
+      "acme.ts.net"
+    ]
+  },
+  "tailnetName": {
+    "Value": "Acme"
+  },
+  "emailDomain": {
+    "Value": "acme.com"
+  },
+  "supportUrl": {
+    "Value": "https://help.acme.com/tailscale"
+  },
+  "showInstallLink": {
+    "Value": false
+  }
 }

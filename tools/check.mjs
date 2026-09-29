@@ -106,6 +106,18 @@ for (const key of Object.keys(fullExample)) {
   }
 }
 
+// The Admin console passes this JSON to Chrome verbatim, and Chrome's component policy
+// parser discards the whole blob unless every value is wrapped as {"Value": ...}. A flat
+// example looks fine everywhere except chrome://policy/logs, so the shape is checked here.
+for (const name of ['admin-console-minimal.json', 'admin-console-full.json']) {
+  const example = JSON.parse(readFileSync(new URL(`../examples/${name}`, import.meta.url), 'utf8'));
+  for (const [key, value] of Object.entries(example)) {
+    if (value === null || typeof value !== 'object' || Array.isArray(value) || !('Value' in value)) {
+      problems.push(`examples/${name} has "${key}" unwrapped; the Admin console needs {"Value": ...}`);
+    }
+  }
+}
+
 // Per-state maps that fail silently when a state is missing: a wrong pill colour, or the
 // connect-the-toggle illustration shown on a state where Tailscale is already up. Both
 // were missed when the two newest states were added.

@@ -15,7 +15,9 @@ Replace `EXTENSION_ID_HERE` with the real extension ID from `chrome://extensions
 
 ## The shape differs per platform, and getting it wrong is silent
 
-The Admin console and Linux use a `3rdparty` wrapper. **macOS does not.** It reads
+The Admin console needs every value wrapped as `{"Value": ...}`, and nothing else does. Paste flat values there and Chrome discards the whole configuration, logging `The JSON blob dictionary value is not a dictionary` in `chrome://policy/logs` and nowhere else. The two `admin-console-*.json` files are already wrapped.
+
+Windows and Linux nest the plain values under a `3rdparty` key. **macOS does not.** It reads
 extension policy from a preference domain named after the extension:
 
 ```
@@ -34,7 +36,7 @@ After applying any of these, open `chrome://policy` and find the extension by na
 - **"Not set"** → the JSON reached Chrome but failed schema validation. Usually a
   misspelled key, or a value of the wrong type such as `"false"` as a string instead of
   a boolean.
-- Section present but empty → on macOS, almost always the `3rdparty` mistake above.
+- Section present but empty → from the Admin console, an unwrapped value. On macOS, almost always the `3rdparty` mistake above. `chrome://policy/logs` names the reason either way.
 
 A value Chrome accepted but the extension rejected, such as a malformed hostname in
 `watchedSuffixes`, shows as applied here. The extension's own options page reports those

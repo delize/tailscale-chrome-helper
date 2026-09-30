@@ -104,6 +104,15 @@ test('wrongTailnet does not poll, so it cannot repaint or auto-navigate', () => 
   assert.ok(guardAt > -1 && guardAt < redirectAt, 'the guard precedes the auto-redirect');
 });
 
+test('the wrongTailnet suggestion opens in the same tab', () => {
+  // It inherited setLink's new-tab rule, which exists to keep a polling page alive. This
+  // page does not poll, so the new tab only left the typo'd address open behind it.
+  const help = readFileSync(new URL('../src/help.js', import.meta.url), 'utf8');
+  const setAt = help.indexOf("el('goSuggested'),");
+  const clearAt = help.indexOf("el('goSuggested').removeAttribute('target');", setAt);
+  assert.ok(setAt > -1 && clearAt > setAt, 'target is cleared after setLink sets it');
+});
+
 test('host counts age out and refuse to downgrade a newer record', () => {
   const now = 1_000_000_000_000;
   let store = mergeHit(null, 'a.corp.ts.net', now - MAX_AGE_MS - 1);

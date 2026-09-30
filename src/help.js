@@ -106,7 +106,8 @@ function renderTemplate(container, template, tokens) {
 // Every link here opens in a new tab. The page tells the user to stay on it, and it
 // takes them to the app by itself once the connection returns, so navigating away is
 // the one thing that breaks the recovery it promises. mailto: is exempt because a new
-// tab for a mail handler just leaves a blank one behind.
+// tab for a mail handler just leaves a blank one behind. The wrongTailnet suggestion is
+// the other exception, handled where it is set.
 function setLink(anchor, wrap, href, label) {
   if (!href) {
     (wrap || anchor).hidden = true;
@@ -280,6 +281,10 @@ async function main() {
       suggesting ? `https://${suggestion}/` : '',
       suggesting ? suggestion : ''
     );
+    // Same tab. wrongTailnet does not poll, so there is no recovery to protect by staying,
+    // and a new tab left the user with the typo'd page still open behind the right one.
+    // Continue anyway navigates in place too, so both answers to the page behave alike.
+    el('goSuggested').removeAttribute('target');
     el('continueAnyway').hidden = !continueShown;
     // The illustration is already handled by ILLUSTRATION_HELPS above. What is specific to
     // wrongTailnet is that retrying is meaningless: nothing here is waiting on connectivity.

@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-03/schema#",
   "title": "Tailnet Connection Helper configuration",
-  "description": "Administrator configuration delivered through Chrome's managed storage. Set these under the extension's ID in the Admin console field 'Policy for extensions'. Values use the flat form, for example {\"companyName\": \"Acme\"}.",
+  "description": "Administrator configuration delivered through Chrome's managed storage. Set these under the extension's ID in the Admin console field 'Policy for extensions'. In that field each value is wrapped as {\"Value\": ...}, for example {\"companyName\": {\"Value\": \"Acme\"}}. MDM profiles, the Windows registry and Linux policy files take plain values.",
   "type": "object",
   "properties": {
     "enabled": {

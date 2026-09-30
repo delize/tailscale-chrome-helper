@@ -143,6 +143,15 @@ Policy changes apply without a browser restart. After **Reload policies**, the i
 
 ## Settings
 
+The examples in this section show plain values, which is what MDM profiles, the Windows registry and Linux policy files take. For the Admin console, wrap each top-level key and leave everything inside it alone. `strings` is one top-level key, so its nested states are not wrapped:
+
+```json
+{
+  "accentColor": { "Value": "#4a63d8" },
+  "strings": { "Value": { "tailscaleOff": { "pill": "VPN not connected" } } }
+}
+```
+
 | Key | Type | Default | Notes |
 |---|---|---|---|
 | `enabled` | boolean | `true` | Set false to leave Chrome's error page alone without uninstalling. |

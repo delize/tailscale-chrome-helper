@@ -91,15 +91,17 @@ installed extension.
 
 ## Configure it
 
-The smallest useful policy is three keys:
+The smallest useful policy is three keys. In the Google Admin console, paste it into the extension's **Policy for extensions** field:
 
 ```json
 {
-  "companyName": "Acme",
-  "watchedSuffixes": ["acme.ts.net"],
-  "supportUrl": "https://help.acme.com"
+  "companyName": { "Value": "Acme" },
+  "watchedSuffixes": { "Value": ["acme.ts.net"] },
+  "supportUrl": { "Value": "https://help.acme.com" }
 }
 ```
+
+Every value in that field is wrapped in `{"Value": ...}`. The Admin console passes the JSON to Chrome as is, and Chrome discards the whole configuration if any value is left bare. macOS profiles, the Windows registry and Linux policy files take plain values instead.
 
 That gets you the company name in the headline, only your own tailnet watched, and a
 support route after repeated failures.

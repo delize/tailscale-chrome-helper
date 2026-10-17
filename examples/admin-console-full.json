@@ -43,6 +43,15 @@
   "openAppUrl": {
     "Value": "https://selfservice.acme.com/tailscale"
   },
+  "openAppUrlMac": {
+    "Value": "tailscale://navigate/main/devices"
+  },
+  "openAppUrlWindows": {
+    "Value": "https://selfservice.acme.com/tailscale"
+  },
+  "openAppUrlLinux": {
+    "Value": "https://selfservice.acme.com/tailscale"
+  },
   "openAppLabel": {
     "Value": "Open Tailscale"
   },

@@ -30,9 +30,19 @@ export const DEFAULTS = {
   // a deliberate choice rather than a default. Never transmitted by this extension.
   recordUnwatchedHosts: false,
   tailscaleDownloadUrl: 'https://tailscale.com/download',
-  // Empty here, and filled in by loadConfig on macOS only (see MAC_OPEN_APP_URL). An
-  // administrator's value, including an empty one to hide the link, applies everywhere.
+  // The Open Tailscale link, one setting per platform. The page uses the setting for the
+  // platform it runs on. openAppUrl applies to every platform whose own setting was not
+  // set, so a v1.0 policy keeps working. See resolveOpenAppLink for the order.
   openAppUrl: '',
+  // Tailscale's signed-only deeplinks (tailscale:// and tailscale://connect) launch the
+  // app and then fail with "Unable to verify deeplink". The navigate/ family is accepted
+  // unsigned on macOS and iOS. It opens the client, it does not connect. Verified on macOS
+  // 1.104.1, connected and disconnected.
+  openAppUrlMac: 'tailscale://navigate/main/devices',
+  // The 1.104.1 Windows client handles tailscale:// links as Tailnet Lock signing requests
+  // only, so any link here would most likely show the same error. Empty until tested.
+  openAppUrlWindows: '',
+  openAppUrlLinux: '',
   openAppLabel: 'Open Tailscale',
   connectHelpUrl: '',
   controlUrl: 'http://connectivitycheck.gstatic.com/generate_204',
@@ -71,16 +81,22 @@ export const DEFAULTS = {
 // able to blank the notice that tells people what is being recorded about them, and a
 // disclosure that policy can suppress is not a disclosure. Everything else on these pages
 // is overridable. This is the one thing that is not.
-// The client opens to its device list. Tailscale's signed-only deeplinks (tailscale:// and
-// tailscale://connect) launch the app and then fail with "Unable to verify deeplink", but
-// the navigate/ family is accepted unsigned. Verified on macOS 1.104.1, connected and
-// disconnected, where it opens the Tailscale window with no error. Untested on Windows
-// and Linux, so the built-in default stays off there rather than risk an error dialog.
-export const MAC_OPEN_APP_URL = 'tailscale://navigate/main/devices';
-
-export function isMacPlatform(nav = globalThis.navigator) {
+// Which platform setting applies. ChromeOS and anything unrecognised get none.
+export function currentPlatform(nav = globalThis.navigator) {
   const platform = nav?.userAgentData?.platform || nav?.platform || '';
-  return /^mac/i.test(platform);
+  if (/^mac/i.test(platform)) return 'Mac';
+  if (/^win/i.test(platform)) return 'Windows';
+  if (/^linux/i.test(platform) && !/android/i.test(platform)) return 'Linux';
+  return null;
+}
+
+// The order, in plain terms: the platform's own setting if an administrator set it, then
+// openAppUrl if an administrator set it, then the platform's built-in default.
+export function resolveOpenAppLink(config, setKeys, platform) {
+  const own = platform ? `openAppUrl${platform}` : null;
+  if (own && setKeys.has(own)) return config[own];
+  if (setKeys.has('openAppUrl')) return config.openAppUrl;
+  return own ? config[own] : '';
 }
 
 export const DISCLOSURE = {
@@ -351,6 +367,9 @@ export const CLEANERS = {
   recordUnwatchedHosts: (v) => (typeof v === 'boolean' ? v : null),
   tailscaleDownloadUrl: cleanLink,
   openAppUrl: cleanAppUrl,
+  openAppUrlMac: cleanAppUrl,
+  openAppUrlWindows: cleanAppUrl,
+  openAppUrlLinux: cleanAppUrl,
   openAppLabel: (v) => cleanText(v, 40),
   connectHelpUrl: cleanLink,
   controlUrl: cleanProbeUrl,
@@ -394,7 +413,9 @@ export async function loadConfig({ force = false } = {}) {
   const managedKeys = new Set();
 
   const rejected = [];
-  let appUrlSet = false;
+  // Keys that policy or sync actually supplied a usable value for, which is what decides
+  // whether a platform default or openAppUrl wins.
+  const setKeys = new Set();
 
   for (const key of Object.keys(DEFAULTS)) {
     const clean = CLEANERS[key];
@@ -407,7 +428,7 @@ export async function loadConfig({ force = false } = {}) {
       managedKeys.add(key);
       if (value !== null) {
         config[key] = value;
-        if (key === 'openAppUrl') appUrlSet = true;
+        setKeys.add(key);
       } else rejected.push(key);
       continue;
     }
@@ -415,12 +436,13 @@ export async function loadConfig({ force = false } = {}) {
       const value = clean(sync[key]);
       if (value !== null) {
         config[key] = value;
-        if (key === 'openAppUrl') appUrlSet = true;
+        setKeys.add(key);
       }
     }
   }
 
-  if (!appUrlSet && isMacPlatform()) config.openAppUrl = MAC_OPEN_APP_URL;
+  // Derived, not a setting: the link this device's page actually shows.
+  config.openAppLink = resolveOpenAppLink(config, setKeys, currentPlatform());
 
   if (rejected.length) {
     // The only signal an administrator gets. chrome://policy shows the value as applied,

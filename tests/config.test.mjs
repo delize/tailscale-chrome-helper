@@ -29,7 +29,6 @@ const {
   defaultStrings,
   DEFAULTS,
   STATES,
-  MAC_OPEN_APP_URL,
 } = await import('../src/config.js');
 
 // Node has its own navigator, so the platform is pinned per test rather than inherited
@@ -119,24 +118,49 @@ test('openAppUrl allows the app scheme but not arbitrary ones', async () => {
   }
 });
 
-test('openAppUrl defaults to the navigate deeplink on macOS only', async () => {
-  onPlatform('MacIntel');
-  assert.equal((await resolve()).config.openAppUrl, MAC_OPEN_APP_URL);
-  // A rejected policy value still lands on the platform default, not on nothing.
-  assert.equal((await resolve({ openAppUrl: 'javascript:alert(1)' })).config.openAppUrl, MAC_OPEN_APP_URL);
-  for (const platform of ['Win32', 'Linux x86_64', '']) {
+test('each platform gets its own built-in link, and only macOS has one', async () => {
+  const cases = [
+    ['MacIntel', DEFAULTS.openAppUrlMac],
+    ['Win32', ''],
+    ['Linux x86_64', ''],
+    ['', ''],
+  ];
+  for (const [platform, want] of cases) {
     onPlatform(platform);
-    assert.equal((await resolve()).config.openAppUrl, '', `no default link on ${platform || 'unknown'}`);
+    assert.equal((await resolve()).config.openAppLink, want, `link on ${platform || 'unknown'}`);
   }
+  assert.equal(DEFAULTS.openAppUrlMac, 'tailscale://navigate/main/devices');
 });
 
-test('an administrator can hide the open link, or set one on any platform', async () => {
+test('openAppUrl covers every platform that has no setting of its own', async () => {
+  const portal = 'https://selfservice.acme.com/tailscale';
+  for (const platform of ['MacIntel', 'Win32', 'Linux x86_64']) {
+    onPlatform(platform);
+    assert.equal((await resolve({ openAppUrl: portal })).config.openAppLink, portal, platform);
+  }
+  // An empty openAppUrl is a deliberate "hide it", and beats the macOS default.
   onPlatform('MacIntel');
-  assert.equal((await resolve({ openAppUrl: '' })).config.openAppUrl, '', 'empty must hide it on macOS');
-  assert.equal((await resolve({ openAppUrl: '   ' })).config.openAppUrl, '');
+  assert.equal((await resolve({ openAppUrl: '' })).config.openAppLink, '');
+  assert.equal((await resolve({ openAppUrl: '   ' })).config.openAppLink, '');
+});
+
+test('a platform setting beats openAppUrl, on that platform only', async () => {
+  const portal = 'https://selfservice.acme.com/tailscale';
+  const policy = { openAppUrl: portal, openAppUrlWindows: '' };
   onPlatform('Win32');
-  const url = 'https://selfservice.acme.com/tailscale';
-  assert.equal((await resolve({ openAppUrl: url })).config.openAppUrl, url);
+  assert.equal((await resolve(policy)).config.openAppLink, '', 'Windows hidden by its own setting');
+  onPlatform('MacIntel');
+  assert.equal((await resolve(policy)).config.openAppLink, portal, 'macOS still follows openAppUrl');
+  onPlatform('Win32');
+  assert.equal((await resolve({ openAppUrlWindows: portal })).config.openAppLink, portal);
+});
+
+test('a rejected link value falls back as if it had not been set', async () => {
+  onPlatform('MacIntel');
+  const { config, rejected } = await resolve({ openAppUrlMac: 'javascript:alert(1)' });
+  assert.equal(config.openAppLink, DEFAULTS.openAppUrlMac);
+  assert.ok(rejected.includes('openAppUrlMac'));
+  assert.equal((await resolve({ openAppUrl: 'file:///etc/passwd' })).config.openAppLink, DEFAULTS.openAppUrlMac);
 });
 
 test('accentColor accepts only plain hex, because it lands in a CSS property', async () => {

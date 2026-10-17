@@ -167,7 +167,10 @@ The examples in this section show plain values, which is what MDM profiles, the 
 | `showContinueAnyway` | boolean | `true` | Whether that page offers a way past the suggestion. Hides a button, does not block access. See below. |
 | `recordUnwatchedHosts` | boolean | `false` | Count failed visits to other tailnets, locally. See below. |
 | `tailscaleDownloadUrl` | string | Tailscale's download page | Offered only when Tailscale is not running, and only if `showInstallLink` is true. |
-| `openAppUrl` | string | `tailscale://navigate/main/devices` on macOS, unset elsewhere | Link offered when the icon cannot be found. Accepts `tailscale:` or `https:`. An empty string hides it. See below. |
+| `openAppUrlMac` | string | `tailscale://navigate/main/devices` | Open Tailscale link on macOS. Accepts `tailscale:` or `https:`. An empty string hides it. See below. |
+| `openAppUrlWindows` | string | unset | Open Tailscale link on Windows. Same rules. |
+| `openAppUrlLinux` | string | unset | Open Tailscale link on Linux. Same rules. |
+| `openAppUrl` | string | unset | Open Tailscale link for every platform that has no setting of its own. Kept from v1.0. See below. |
 | `openAppLabel` | string | `Open Tailscale` | Text of that link. |
 | `connectHelpUrl` | string | unset | Link to your own runbook. |
 | `controlUrl` | string | `http://connectivitycheck.gstatic.com/generate_204` | Captive portal probe. Must be **http**, see below. |
@@ -292,13 +295,28 @@ wrong.
 
 ### Launching the client
 
-`openAppUrl` puts a link in the first step for users who cannot find the Tailscale icon. On macOS it defaults to `tailscale://navigate/main/devices`. On Windows and Linux it is unset by default.
+The first step can offer an **Open Tailscale** link for users who cannot find the Tailscale icon. It opens the client. It does not connect, so the user still clicks the toggle. Each platform has its own setting:
 
-Tailscale registers the `tailscale://` scheme, but most of it serves signed deeplinks only. Both `tailscale://` and `tailscale://connect` launch the app, which then rejects them with:
+| Setting | Default |
+|---|---|
+| `openAppUrlMac` | `tailscale://navigate/main/devices` |
+| `openAppUrlWindows` | unset, no link |
+| `openAppUrlLinux` | unset, no link |
+| `openAppUrl` | unset. Applies to every platform whose own setting you did not set |
+
+The page picks one link for the device it runs on, in this order:
+
+1. The platform's own setting, if you set it.
+2. `openAppUrl`, if you set it.
+3. The platform's default from the table.
+
+So `openAppUrl` alone gives every platform the same link, as it did in v1.0. Setting a platform key as well overrides it on that platform only. An empty string is a real value and hides the link. `openAppUrl` set to `""` hides it everywhere, including macOS, unless a platform setting says otherwise. ChromeOS and unrecognised platforms use only `openAppUrl`.
+
+Why the defaults differ. Tailscale registers the `tailscale://` scheme on macOS and Windows, but the bare `tailscale://` and `tailscale://connect` are Tailnet Lock signing requests. The app launches and then rejects them with:
 
 > The signing request could not be authenticated: Unable to verify deeplink
 
-The `tailscale://navigate/` family is different. It opens the client on a given screen and needs no signature. Tested on macOS with client 1.104.1, both connected and disconnected, it opens the Tailscale window with no error. The disconnected case matters most, because that is when the guidance page offers the link. Tailscale documents these forms:
+On macOS the `tailscale://navigate/` family is different. It opens the client on a given screen and needs no signature. Tested with client 1.104.1, connected and disconnected, it opens the Tailscale window with no error. Tailscale support shared these forms, which are not yet in Tailscale's public documentation:
 
 ```
 tailscale://navigate/main/devices
@@ -306,7 +324,7 @@ tailscale://navigate/main/exit-nodes
 tailscale://navigate/settings
 ```
 
-Windows and Linux have not been tested, so they get no default rather than a link that might produce an error dialog. If you have tested it on your fleet, set `openAppUrl` explicitly. A value you set applies on every platform. Set it to an empty string to hide the link everywhere, including macOS. An MDM self-service page that launches or repairs the client is still a good choice, and an `https:` URL is the right shape for that.
+Support described them as supported on macOS and iOS/iPadOS only. The 1.104.1 Windows client handles `tailscale://` links as signing requests and nothing else, so a `navigate/` link there would most likely show the same error. That is why Windows has no default. An MDM self-service page that launches or repairs the client is a good choice on any platform, and an `https:` URL is the right shape for that.
 
 Worth knowing either way: Chrome's permission prompt names the requesting origin, and for
 an extension that is the raw extension ID rather than a friendly name. Users find that
@@ -470,7 +488,7 @@ is dropped when there is no corrected address to show, and one beginning `{conti
 is dropped when the continue button is hidden. Keep them if you rewrite those steps, or the
 copy will point at buttons that are not on the page. They are inserted as plain text, so markup in a value
 appears as literal characters rather than being rendered. `{openApp}` becomes the link
-described above, and disappears entirely when `openAppUrl` is unset or empty.
+described above, and disappears entirely when the device's platform has no link (see Launching the client).
 
 One field is emphasised automatically: the word **toggle** anywhere in a step is bolded,
 because it is the word users scan for. That is an English-language assumption, so if you

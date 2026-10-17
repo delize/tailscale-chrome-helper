@@ -41,7 +41,7 @@ tailscale\shell\open\command = "[ClientGUI]" /url "%1"
 
 Every `tailscale://` link is handed to `tailscale-ipn.exe /url`. The only link handling in that binary is Tailnet Lock signing (`TailnetLockVerifySigningDeeplink`, "Invalid signing deeplink", "Failed validating signing deeplink"). The strings `navigate/` and `main/devices` appear nowhere in the GUI, the CLI or the service. Go keeps string literals readable in the binary, so the absence is a strong signal, though the link has not been run on a Windows machine. This agrees with support's "macOS and iOS/iPadOS". The likely result of the macOS default on Windows is the same signing error, which is why the default is gated to macOS.
 
-**Linux.** Not inspected. Linux has no first-party GUI client to register a scheme.
+**Linux.** Not inspected.
 
 ## The problem
 

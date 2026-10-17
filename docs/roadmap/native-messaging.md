@@ -1,7 +1,47 @@
 # Launching the Tailscale client from the guidance page
 
-Status: **research, not committed.** Tracked in
+Status: **open. macOS has a workaround.** Tracked in
 [issue #1](https://github.com/delize/tailscale-chrome-helper/issues/1).
+
+Tailscale's `tailscale://navigate/` links open the client without a signature. `tailscale://navigate/main/devices` is verified on macOS (client 1.104.1, connected and disconnected) and is now the `openAppUrlMac` default. It is a workaround, not a fix. The link opens the client so the user does not have to find the icon, but it does not connect, and the user still clicks the toggle. Windows and Linux have no equivalent link at all. Nothing on any platform connects the device from the guidance page, so this document still applies everywhere.
+
+## What Tailscale said
+
+Asked through Tailscale support in October 2026. Two answers came back.
+
+On controlling the VPN, the answer was no. Support wrote that "letting arbitrary apps control the VPN via deep links isn't something we'll do for security reasons", and that Tailscale is "exploring a proper SDK as a safer path for app integration". So no link will ever connect or disconnect the client, and a connect button is not coming from the URL scheme.
+
+On opening the app, support shared a set of links that work today, with public documentation "still in development". They are "currently supported on macOS and iOS/iPadOS":
+
+```
+tailscale://navigate/main/devices
+tailscale://navigate/main/devices/<computedName or stableID>
+tailscale://navigate/main/exit-nodes
+tailscale://navigate/main/exit-nodes/<stableID>
+tailscale://navigate/main/exit-nodes/location/<country>
+tailscale://navigate/settings[/<anyTab>]
+```
+
+Requests for further paths go to Tailscale's GitHub as new issues.
+
+## What the clients actually contain
+
+Inspected statically, without running anything, on client 1.104.1 for both platforms.
+
+**macOS.** The app registers two schemes, `tailscale` and `io.tailscale.ipn.macsys`. Its own widgets use `tailscale://navigate/main/devices`, `tailscale://navigate/settings/vpn-on-demand` and `tailscale://taildrop/pick`. The "Unable to verify deeplink" error comes from the Tailnet Lock signing handler (`TailnetLockSignDeeplink`, `/localapi/v0/tka/verify-deeplink`), which is why the bare `tailscale://` and `tailscale://connect` fail.
+
+The app also exposes App Intents: Connect, Disconnect, Toggle, Get Status and others. Connect and Disconnect are built-in App Shortcuts, so on any Mac a user can type "Connect Tailscale" in Spotlight with no setup. macOS offers no public way for another program to invoke them, and a `shortcuts://run-shortcut` link only runs a Shortcut the user has saved. From a shell, `tailscale up` and `scutil --nc start "Tailscale"` do the same job, but an extension cannot run either.
+
+**Windows.** The MSI registers the scheme under `HKCR\tailscale`:
+
+```
+tailscale                    = "URL:Tailscale Protocol"  (URL Protocol)
+tailscale\shell\open\command = "[ClientGUI]" /url "%1"
+```
+
+Every `tailscale://` link is handed to `tailscale-ipn.exe /url`. The only link handling in that binary is Tailnet Lock signing (`TailnetLockVerifySigningDeeplink`, "Invalid signing deeplink", "Failed validating signing deeplink"). The strings `navigate/` and `main/devices` appear nowhere in the GUI, the CLI or the service. Go keeps string literals readable in the binary, so the absence is a strong signal, though the link has not been run on a Windows machine. This agrees with support's "macOS and iOS/iPadOS". The likely result of the macOS default on Windows is the same signing error, which is why the default is gated to macOS.
+
+**Linux.** Not inspected.
 
 ## The problem
 
@@ -12,7 +52,7 @@ it, that is where they stop. A button that opens the client would close the gap.
 ## What was tried, and why it failed
 
 `tailscale://`. Tailscale registers the scheme, which makes it look like the obvious
-answer. It is not: the scheme serves **signed deeplinks only**.
+answer. Those two links are not: they need a **signature**.
 
 | URL | Result |
 |---|---|
@@ -23,7 +63,7 @@ Both produce:
 
 > The signing request could not be authenticated: Unable to verify deeplink
 
-Verified on macOS, both forms. There is no unsigned URL that simply opens the app.
+Verified on macOS, both forms. The `navigate/` family, found later, is the exception. See the status note above.
 
 Two smaller findings from the same attempt, worth keeping:
 
@@ -76,6 +116,8 @@ today with no code change and this document becomes a footnote.
 
 **That question should be asked before any code is written.**
 
+It was asked. Tailscale's answer was the unsigned `tailscale://navigate/` family, which is what `openAppUrlMac` now defaults to.
+
 ## What ships today instead
 
 Step three of the guidance copy:
@@ -86,7 +128,7 @@ Step three of the guidance copy:
 
 Honest, works on every platform, needs no permission, cannot error.
 
-`openAppUrl` remains available and unset. An organisation can point it at an MDM
+`openAppUrlMac` defaults to the `navigate/` link, and `openAppUrlWindows` and `openAppUrlLinux` are unset. An organisation can point any of them, or `openAppUrl` for all platforms, at an MDM
 self-service page, which launches *or repairs* the client and is strictly more useful
 than a scheme that only opens it.
 

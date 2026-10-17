@@ -30,14 +30,19 @@ export const DEFAULTS = {
   // a deliberate choice rather than a default. Never transmitted by this extension.
   recordUnwatchedHosts: false,
   tailscaleDownloadUrl: 'https://tailscale.com/download',
-  // Empty by default, deliberately. Tailscale registers the tailscale:// scheme, but it
-  // serves signed deeplinks only. Both tailscale:// and tailscale://connect launch the
-  // client, which then rejects them with "The signing request could not be authenticated:
-  // Unable to verify deeplink". Verified on macOS, both forms. There is no unsigned URL
-  // that simply opens the app, so this ships off rather than handing users an error
-  // dialog. An administrator can point it at something that does work in their
-  // environment, such as an MDM self-service page.
+  // The Open Tailscale link, one setting per platform. The page uses the setting for the
+  // platform it runs on. openAppUrl applies to every platform whose own setting was not
+  // set, so a v1.0 policy keeps working. See resolveOpenAppLink for the order.
   openAppUrl: '',
+  // Tailscale's signed-only deeplinks (tailscale:// and tailscale://connect) launch the
+  // app and then fail with "Unable to verify deeplink". The navigate/ family is accepted
+  // unsigned on macOS and iOS. It opens the client, it does not connect. Verified on macOS
+  // 1.104.1, connected and disconnected.
+  openAppUrlMac: 'tailscale://navigate/main/devices',
+  // The 1.104.1 Windows client handles tailscale:// links as Tailnet Lock signing requests
+  // only, so any link here would most likely show the same error. Empty until tested.
+  openAppUrlWindows: '',
+  openAppUrlLinux: '',
   openAppLabel: 'Open Tailscale',
   connectHelpUrl: '',
   controlUrl: 'http://connectivitycheck.gstatic.com/generate_204',
@@ -76,6 +81,24 @@ export const DEFAULTS = {
 // able to blank the notice that tells people what is being recorded about them, and a
 // disclosure that policy can suppress is not a disclosure. Everything else on these pages
 // is overridable. This is the one thing that is not.
+// Which platform setting applies. ChromeOS and anything unrecognised get none.
+export function currentPlatform(nav = globalThis.navigator) {
+  const platform = nav?.userAgentData?.platform || nav?.platform || '';
+  if (/^mac/i.test(platform)) return 'Mac';
+  if (/^win/i.test(platform)) return 'Windows';
+  if (/^linux/i.test(platform) && !/android/i.test(platform)) return 'Linux';
+  return null;
+}
+
+// The order, in plain terms: the platform's own setting if an administrator set it, then
+// openAppUrl if an administrator set it, then the platform's built-in default.
+export function resolveOpenAppLink(config, setKeys, platform) {
+  const own = platform ? `openAppUrl${platform}` : null;
+  if (own && setKeys.has(own)) return config[own];
+  if (setKeys.has('openAppUrl')) return config.openAppUrl;
+  return own ? config[own] : '';
+}
+
 export const DISCLOSURE = {
   // True on every install, with every optional setting off. The extension is told the
   // address of each failed navigation and uses it. Under Google's definition that is
@@ -277,8 +300,12 @@ function cleanImage(value, maxBytes = MAX_LOGO_BYTES) {
 // Launching a local application, so the allowlist differs from a support link: the custom
 // scheme is the point, and mailto would be meaningless. https stays permitted for
 // organisations that route this through a self-service portal instead.
+// An empty string is a deliberate choice to hide the link, so it is kept rather than
+// rejected. Rejecting it would fall back to the macOS default and the link could never be
+// turned off.
 function cleanAppUrl(value) {
-  if (typeof value !== 'string' || !value.trim()) return null;
+  if (typeof value !== 'string') return null;
+  if (!value.trim()) return '';
   try {
     const url = new URL(value.trim());
     return ['tailscale:', 'https:'].includes(url.protocol) ? url.toString() : null;
@@ -340,6 +367,9 @@ export const CLEANERS = {
   recordUnwatchedHosts: (v) => (typeof v === 'boolean' ? v : null),
   tailscaleDownloadUrl: cleanLink,
   openAppUrl: cleanAppUrl,
+  openAppUrlMac: cleanAppUrl,
+  openAppUrlWindows: cleanAppUrl,
+  openAppUrlLinux: cleanAppUrl,
   openAppLabel: (v) => cleanText(v, 40),
   connectHelpUrl: cleanLink,
   controlUrl: cleanProbeUrl,
@@ -383,6 +413,9 @@ export async function loadConfig({ force = false } = {}) {
   const managedKeys = new Set();
 
   const rejected = [];
+  // Keys that policy or sync actually supplied a usable value for, which is what decides
+  // whether a platform default or openAppUrl wins.
+  const setKeys = new Set();
 
   for (const key of Object.keys(DEFAULTS)) {
     const clean = CLEANERS[key];
@@ -393,15 +426,23 @@ export async function loadConfig({ force = false } = {}) {
       // control to whatever the user had typed, which is an enterprise control failing
       // open. A rejected value keeps the built-in default instead, and is reported.
       managedKeys.add(key);
-      if (value !== null) config[key] = value;
-      else rejected.push(key);
+      if (value !== null) {
+        config[key] = value;
+        setKeys.add(key);
+      } else rejected.push(key);
       continue;
     }
     if (Object.prototype.hasOwnProperty.call(sync, key)) {
       const value = clean(sync[key]);
-      if (value !== null) config[key] = value;
+      if (value !== null) {
+        config[key] = value;
+        setKeys.add(key);
+      }
     }
   }
+
+  // Derived, not a setting: the link this device's page actually shows.
+  config.openAppLink = resolveOpenAppLink(config, setKeys, currentPlatform());
 
   if (rejected.length) {
     // The only signal an administrator gets. chrome://policy shows the value as applied,

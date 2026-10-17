@@ -73,8 +73,23 @@
       "type": "string"
     },
     "openAppUrl": {
-      "title": "Open Tailscale link",
-      "description": "Link offered to a user who cannot find the Tailscale icon. Defaults to tailscale://connect, which launches the installed client after Chrome asks permission. It opens the app only, it does not connect. Accepts a tailscale: or https: URL, so a self-service portal can be used instead. Leave empty to hide the link.",
+      "title": "Open Tailscale link, all platforms",
+      "description": "Open Tailscale link for every platform that has no setting of its own (openAppUrlMac, openAppUrlWindows, openAppUrlLinux). Unset by default. A platform setting you set wins over this one on that platform. The link opens the client, it does not connect. Accepts a tailscale: or https: URL. An empty string hides the link.",
+      "type": "string"
+    },
+    "openAppUrlMac": {
+      "title": "Open Tailscale link, macOS",
+      "description": "Open Tailscale link on macOS. Defaults to tailscale://navigate/main/devices, which opens the installed client after Chrome asks permission. It opens the app only, it does not connect. Accepts a tailscale: or https: URL. An empty string hides the link.",
+      "type": "string"
+    },
+    "openAppUrlWindows": {
+      "title": "Open Tailscale link, Windows",
+      "description": "Open Tailscale link on Windows. Unset by default, because the Windows client treats tailscale:// links as signing requests and shows an error. An https: self-service page is the usual choice. An empty string hides the link.",
+      "type": "string"
+    },
+    "openAppUrlLinux": {
+      "title": "Open Tailscale link, Linux",
+      "description": "Open Tailscale link on Linux. Unset by default. Accepts a tailscale: or https: URL. An empty string hides the link.",
       "type": "string"
     },
     "openAppLabel": {

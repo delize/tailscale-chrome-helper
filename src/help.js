@@ -200,12 +200,12 @@ async function main() {
           strong.textContent = part;
           li.appendChild(strong);
         } else if (part === '{openApp}') {
-          // Drops out entirely when unset, which is the default, leaving the sentence
-          // before it to end the step cleanly.
-          if (!config.openAppUrl) continue;
+          // Drops out entirely when this platform has no link (the default off macOS, or
+          // hidden by policy), leaving the sentence before it to end the step cleanly.
+          if (!config.openAppLink) continue;
           const a = document.createElement('a');
           a.className = 'inline-action';
-          a.href = config.openAppUrl;
+          a.href = config.openAppLink;
           a.textContent = config.openAppLabel;
           // Chrome names the requesting origin in its prompt, and for an extension that is
           // the raw ID, which looks alarming without warning.

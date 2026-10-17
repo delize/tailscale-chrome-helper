@@ -95,10 +95,7 @@ read managed storage.
 
 ## Not built, and why
 
-[roadmap/native-messaging.md](roadmap/native-messaging.md) records why the page offers no
-button that opens the Tailscale client. The `tailscale://` scheme serves signed deeplinks
-only and rejects anything else, and Native Messaging, the only other mechanism, needs an
-MDM-deployed host binary. Anything that can deploy that can deploy Tailscale itself.
+[roadmap/native-messaging.md](roadmap/native-messaging.md) records why there is no Native Messaging host for opening the Tailscale client. The bare `tailscale://` and `tailscale://connect` links need a signature and fail without one. The unsigned `tailscale://navigate/main/devices` link works on macOS and is the default there, so a host binary would only add value on platforms where that link is untested.
 
 [ADR 0002](decisions/0002-no-reporting-endpoint.md) records why there is no endpoint for
 reporting the local host counts to an administrator.

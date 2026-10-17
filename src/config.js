@@ -30,13 +30,8 @@ export const DEFAULTS = {
   // a deliberate choice rather than a default. Never transmitted by this extension.
   recordUnwatchedHosts: false,
   tailscaleDownloadUrl: 'https://tailscale.com/download',
-  // Empty by default, deliberately. Tailscale registers the tailscale:// scheme, but it
-  // serves signed deeplinks only. Both tailscale:// and tailscale://connect launch the
-  // client, which then rejects them with "The signing request could not be authenticated:
-  // Unable to verify deeplink". Verified on macOS, both forms. There is no unsigned URL
-  // that simply opens the app, so this ships off rather than handing users an error
-  // dialog. An administrator can point it at something that does work in their
-  // environment, such as an MDM self-service page.
+  // Empty here, and filled in by loadConfig on macOS only (see MAC_OPEN_APP_URL). An
+  // administrator's value, including an empty one to hide the link, applies everywhere.
   openAppUrl: '',
   openAppLabel: 'Open Tailscale',
   connectHelpUrl: '',
@@ -76,6 +71,18 @@ export const DEFAULTS = {
 // able to blank the notice that tells people what is being recorded about them, and a
 // disclosure that policy can suppress is not a disclosure. Everything else on these pages
 // is overridable. This is the one thing that is not.
+// The client opens to its device list. Tailscale's signed-only deeplinks (tailscale:// and
+// tailscale://connect) launch the app and then fail with "Unable to verify deeplink", but
+// the navigate/ family is accepted unsigned. Verified on macOS 1.104.1, connected and
+// disconnected, where it opens the Tailscale window with no error. Untested on Windows
+// and Linux, so the built-in default stays off there rather than risk an error dialog.
+export const MAC_OPEN_APP_URL = 'tailscale://navigate/main/devices';
+
+export function isMacPlatform(nav = globalThis.navigator) {
+  const platform = nav?.userAgentData?.platform || nav?.platform || '';
+  return /^mac/i.test(platform);
+}
+
 export const DISCLOSURE = {
   // True on every install, with every optional setting off. The extension is told the
   // address of each failed navigation and uses it. Under Google's definition that is
@@ -277,8 +284,12 @@ function cleanImage(value, maxBytes = MAX_LOGO_BYTES) {
 // Launching a local application, so the allowlist differs from a support link: the custom
 // scheme is the point, and mailto would be meaningless. https stays permitted for
 // organisations that route this through a self-service portal instead.
+// An empty string is a deliberate choice to hide the link, so it is kept rather than
+// rejected. Rejecting it would fall back to the macOS default and the link could never be
+// turned off.
 function cleanAppUrl(value) {
-  if (typeof value !== 'string' || !value.trim()) return null;
+  if (typeof value !== 'string') return null;
+  if (!value.trim()) return '';
   try {
     const url = new URL(value.trim());
     return ['tailscale:', 'https:'].includes(url.protocol) ? url.toString() : null;
@@ -383,6 +394,7 @@ export async function loadConfig({ force = false } = {}) {
   const managedKeys = new Set();
 
   const rejected = [];
+  let appUrlSet = false;
 
   for (const key of Object.keys(DEFAULTS)) {
     const clean = CLEANERS[key];
@@ -393,15 +405,22 @@ export async function loadConfig({ force = false } = {}) {
       // control to whatever the user had typed, which is an enterprise control failing
       // open. A rejected value keeps the built-in default instead, and is reported.
       managedKeys.add(key);
-      if (value !== null) config[key] = value;
-      else rejected.push(key);
+      if (value !== null) {
+        config[key] = value;
+        if (key === 'openAppUrl') appUrlSet = true;
+      } else rejected.push(key);
       continue;
     }
     if (Object.prototype.hasOwnProperty.call(sync, key)) {
       const value = clean(sync[key]);
-      if (value !== null) config[key] = value;
+      if (value !== null) {
+        config[key] = value;
+        if (key === 'openAppUrl') appUrlSet = true;
+      }
     }
   }
+
+  if (!appUrlSet && isMacPlatform()) config.openAppUrl = MAC_OPEN_APP_URL;
 
   if (rejected.length) {
     // The only signal an administrator gets. chrome://policy shows the value as applied,

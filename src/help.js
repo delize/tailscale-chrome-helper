@@ -200,8 +200,8 @@ async function main() {
           strong.textContent = part;
           li.appendChild(strong);
         } else if (part === '{openApp}') {
-          // Drops out entirely when unset, which is the default, leaving the sentence
-          // before it to end the step cleanly.
+          // Drops out entirely when unset (the default off macOS, or hidden by policy),
+          // leaving the sentence before it to end the step cleanly.
           if (!config.openAppUrl) continue;
           const a = document.createElement('a');
           a.className = 'inline-action';

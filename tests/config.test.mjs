@@ -21,8 +21,22 @@ globalThis.chrome = {
   tabs: { get: async () => ({}), update: async () => {}, onRemoved: { addListener: () => {} } },
 };
 
-const { loadConfig, invalidateConfig, matchesWatched, applyTokens, defaultStrings, DEFAULTS, STATES } =
-  await import('../src/config.js');
+const {
+  loadConfig,
+  invalidateConfig,
+  matchesWatched,
+  applyTokens,
+  defaultStrings,
+  DEFAULTS,
+  STATES,
+  MAC_OPEN_APP_URL,
+} = await import('../src/config.js');
+
+// Node has its own navigator, so the platform is pinned per test rather than inherited
+// from whatever machine runs the suite.
+function onPlatform(platform) {
+  Object.defineProperty(globalThis, 'navigator', { value: { platform }, configurable: true });
+}
 
 async function resolve(managed = {}, sync = {}) {
   MANAGED = managed;
@@ -92,7 +106,8 @@ test('logo data URIs are accepted with either delimiter and capped in size', asy
 });
 
 test('openAppUrl allows the app scheme but not arbitrary ones', async () => {
-  for (const good of ['tailscale://connect', 'https://selfservice.acme.com/tailscale']) {
+  onPlatform('Win32');
+  for (const good of ['tailscale://navigate/main/devices', 'https://selfservice.acme.com/tailscale']) {
     const { config } = await resolve({ openAppUrl: good });
     assert.ok(config.openAppUrl.startsWith(good.split('://')[0]), `${good} must be accepted`);
   }
@@ -102,6 +117,26 @@ test('openAppUrl allows the app scheme but not arbitrary ones', async () => {
     const { config } = await resolve({ openAppUrl: bad });
     assert.equal(config.openAppUrl, DEFAULTS.openAppUrl, `${bad} must be rejected`);
   }
+});
+
+test('openAppUrl defaults to the navigate deeplink on macOS only', async () => {
+  onPlatform('MacIntel');
+  assert.equal((await resolve()).config.openAppUrl, MAC_OPEN_APP_URL);
+  // A rejected policy value still lands on the platform default, not on nothing.
+  assert.equal((await resolve({ openAppUrl: 'javascript:alert(1)' })).config.openAppUrl, MAC_OPEN_APP_URL);
+  for (const platform of ['Win32', 'Linux x86_64', '']) {
+    onPlatform(platform);
+    assert.equal((await resolve()).config.openAppUrl, '', `no default link on ${platform || 'unknown'}`);
+  }
+});
+
+test('an administrator can hide the open link, or set one on any platform', async () => {
+  onPlatform('MacIntel');
+  assert.equal((await resolve({ openAppUrl: '' })).config.openAppUrl, '', 'empty must hide it on macOS');
+  assert.equal((await resolve({ openAppUrl: '   ' })).config.openAppUrl, '');
+  onPlatform('Win32');
+  const url = 'https://selfservice.acme.com/tailscale';
+  assert.equal((await resolve({ openAppUrl: url })).config.openAppUrl, url);
 });
 
 test('accentColor accepts only plain hex, because it lands in a CSS property', async () => {

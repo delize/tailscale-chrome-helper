@@ -1,9 +1,9 @@
 # Launching the Tailscale client from the guidance page
 
-Status: **solved on macOS, open on Windows and Linux.** Tracked in
+Status: **open. macOS has a workaround.** Tracked in
 [issue #1](https://github.com/delize/tailscale-chrome-helper/issues/1).
 
-Tailscale's `tailscale://navigate/` links open the client without a signature. `tailscale://navigate/main/devices` is verified on macOS (client 1.104.1, connected and disconnected) and is now the `openAppUrl` default there. Windows and Linux have no equivalent, so this document still applies to them.
+Tailscale's `tailscale://navigate/` links open the client without a signature. `tailscale://navigate/main/devices` is verified on macOS (client 1.104.1, connected and disconnected) and is now the `openAppUrl` default there. It is a workaround, not a fix. The link opens the client so the user does not have to find the icon, but it does not connect, and the user still clicks the toggle. Windows and Linux have no equivalent link at all. Nothing on any platform connects the device from the guidance page, so this document still applies everywhere.
 
 ## What Tailscale said
 

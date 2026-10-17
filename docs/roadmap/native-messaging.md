@@ -1,7 +1,9 @@
 # Launching the Tailscale client from the guidance page
 
-Status: **research, not committed.** Tracked in
+Status: **largely superseded.** Tracked in
 [issue #1](https://github.com/delize/tailscale-chrome-helper/issues/1).
+
+Tailscale's `tailscale://navigate/` links open the client without a signature. `tailscale://navigate/main/devices` is verified on macOS (client 1.104.1, connected and disconnected) and is now the `openAppUrl` default there. Windows and Linux still need testing. If the link works there too, everything below is history.
 
 ## The problem
 
@@ -12,7 +14,7 @@ it, that is where they stop. A button that opens the client would close the gap.
 ## What was tried, and why it failed
 
 `tailscale://`. Tailscale registers the scheme, which makes it look like the obvious
-answer. It is not: the scheme serves **signed deeplinks only**.
+answer. Those two links are not: they need a **signature**.
 
 | URL | Result |
 |---|---|
@@ -23,7 +25,7 @@ Both produce:
 
 > The signing request could not be authenticated: Unable to verify deeplink
 
-Verified on macOS, both forms. There is no unsigned URL that simply opens the app.
+Verified on macOS, both forms. The `navigate/` family, found later, is the exception. See the status note above.
 
 Two smaller findings from the same attempt, worth keeping:
 
@@ -76,6 +78,8 @@ today with no code change and this document becomes a footnote.
 
 **That question should be asked before any code is written.**
 
+It was asked. Tailscale's answer was the unsigned `tailscale://navigate/` family, which is what `openAppUrl` now uses on macOS.
+
 ## What ships today instead
 
 Step three of the guidance copy:
@@ -86,7 +90,7 @@ Step three of the guidance copy:
 
 Honest, works on every platform, needs no permission, cannot error.
 
-`openAppUrl` remains available and unset. An organisation can point it at an MDM
+`openAppUrl` defaults to the `navigate/` link on macOS and is unset elsewhere. An organisation can point it at an MDM
 self-service page, which launches *or repairs* the client and is strictly more useful
 than a scheme that only opens it.
 

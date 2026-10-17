@@ -41,7 +41,7 @@
     "Value": "https://tailscale.com/download"
   },
   "openAppUrl": {
-    "Value": ""
+    "Value": "https://selfservice.acme.com/tailscale"
   },
   "openAppLabel": {
     "Value": "Open Tailscale"

@@ -167,7 +167,7 @@ The examples in this section show plain values, which is what MDM profiles, the 
 | `showContinueAnyway` | boolean | `true` | Whether that page offers a way past the suggestion. Hides a button, does not block access. See below. |
 | `recordUnwatchedHosts` | boolean | `false` | Count failed visits to other tailnets, locally. See below. |
 | `tailscaleDownloadUrl` | string | Tailscale's download page | Offered only when Tailscale is not running, and only if `showInstallLink` is true. |
-| `openAppUrl` | string | unset | Link offered when the icon cannot be found. Accepts `tailscale:` or `https:`. Off by default, see below. |
+| `openAppUrl` | string | `tailscale://navigate/main/devices` on macOS, unset elsewhere | Link offered when the icon cannot be found. Accepts `tailscale:` or `https:`. An empty string hides it. See below. |
 | `openAppLabel` | string | `Open Tailscale` | Text of that link. |
 | `connectHelpUrl` | string | unset | Link to your own runbook. |
 | `controlUrl` | string | `http://connectivitycheck.gstatic.com/generate_204` | Captive portal probe. Must be **http**, see below. |
@@ -290,23 +290,23 @@ gets Chrome's plain error page. Do not add a public IdP such as `okta.com` this 
 reachable without Tailscale, so a failure there is a real outage and the guidance would be
 wrong.
 
-### Launching the client, and why it is off by default
+### Launching the client
 
-`openAppUrl` can put a link in the first step for users who cannot find the Tailscale icon.
-It is **unset by default**, and that is deliberate.
+`openAppUrl` puts a link in the first step for users who cannot find the Tailscale icon. On macOS it defaults to `tailscale://navigate/main/devices`. On Windows and Linux it is unset by default.
 
-Tailscale registers the `tailscale://` scheme, so it looks like an obvious way to open the
-client. It is not. The scheme serves signed deeplinks only. Both `tailscale://` and
-`tailscale://connect` launch the app, which then rejects them with:
+Tailscale registers the `tailscale://` scheme, but most of it serves signed deeplinks only. Both `tailscale://` and `tailscale://connect` launch the app, which then rejects them with:
 
 > The signing request could not be authenticated: Unable to verify deeplink
 
-Tested on macOS, both forms. There is no unsigned URL that simply opens the app, so the
-default is no link rather than a button that produces an error dialog.
+The `tailscale://navigate/` family is different. It opens the client on a given screen and needs no signature. Tested on macOS with client 1.104.1, both connected and disconnected, it opens the Tailscale window with no error. The disconnected case matters most, because that is when the guidance page offers the link. Tailscale documents these forms:
 
-Set it only if you have something that works in your environment, such as an MDM
-self-service page that launches or repairs the client. An `https:` URL is usually the
-right shape. If you do set a `tailscale:` URL, test the whole path on a real device first.
+```
+tailscale://navigate/main/devices
+tailscale://navigate/main/exit-nodes
+tailscale://navigate/settings
+```
+
+Windows and Linux have not been tested, so they get no default rather than a link that might produce an error dialog. If you have tested it on your fleet, set `openAppUrl` explicitly. A value you set applies on every platform. Set it to an empty string to hide the link everywhere, including macOS. An MDM self-service page that launches or repairs the client is still a good choice, and an `https:` URL is the right shape for that.
 
 Worth knowing either way: Chrome's permission prompt names the requesting origin, and for
 an extension that is the raw extension ID rather than a friendly name. Users find that
@@ -470,7 +470,7 @@ is dropped when there is no corrected address to show, and one beginning `{conti
 is dropped when the continue button is hidden. Keep them if you rewrite those steps, or the
 copy will point at buttons that are not on the page. They are inserted as plain text, so markup in a value
 appears as literal characters rather than being rendered. `{openApp}` becomes the link
-described above, and disappears entirely when `openAppUrl` is unset.
+described above, and disappears entirely when `openAppUrl` is unset or empty.
 
 One field is emphasised automatically: the word **toggle** anywhere in a step is bolded,
 because it is the word users scan for. That is an English-language assumption, so if you

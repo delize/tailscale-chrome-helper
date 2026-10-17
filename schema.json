@@ -74,7 +74,7 @@
     },
     "openAppUrl": {
       "title": "Open Tailscale link",
-      "description": "Link offered to a user who cannot find the Tailscale icon. Defaults to tailscale://connect, which launches the installed client after Chrome asks permission. It opens the app only, it does not connect. Accepts a tailscale: or https: URL, so a self-service portal can be used instead. Leave empty to hide the link.",
+      "description": "Link offered to a user who cannot find the Tailscale icon. On macOS it defaults to tailscale://navigate/main/devices, which opens the installed client after Chrome asks permission. It opens the app only, it does not connect. Windows and Linux have no default. Accepts a tailscale: or https: URL, so a self-service portal can be used instead. A value set here applies on every platform. Set it to an empty string to hide the link.",
       "type": "string"
     },
     "openAppLabel": {
